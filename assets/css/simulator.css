@@ -1,0 +1,4082 @@
+/* PLC S7-1200 Simulator - Industrial Theme */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+
+/* ==================== WORDPRESS INTEGRATION ==================== */
+body:has(#plc-simulator) {
+    overflow-x: hidden;
+}
+
+/* Espandi contenuto WordPress per il simulatore */
+body:has(#plc-simulator) .entry-content,
+body:has(#plc-simulator) .wp-block-post-content {
+    max-width: 100% !important;
+}
+
+/* Fullscreen Mode */
+.plc-container.fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 999999 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
+.plc-container.fullscreen .plc-main {
+    height: calc(100vh - 60px);
+}
+
+/* Pulsante Fullscreen */
+.plc-btn-fullscreen {
+    background: var(--plc-bg-light);
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+}
+
+.plc-btn-fullscreen:hover {
+    background: var(--plc-accent);
+    color: #000;
+}
+
+.plc-container.fullscreen .plc-btn-fullscreen .icon-expand {
+    display: none;
+}
+
+.plc-container.fullscreen .plc-btn-fullscreen .icon-compress {
+    display: inline;
+}
+
+.plc-btn-fullscreen .icon-compress {
+    display: none;
+}
+
+:root {
+    --plc-bg-dark: #1a1d23;
+    --plc-bg-medium: #252932;
+    --plc-bg-light: #2d323c;
+    --plc-border: #3d4451;
+    --plc-text: #e4e7ec;
+    --plc-text-dim: #9ca3af;
+    --plc-accent: #00d4aa;
+    --plc-accent-glow: rgba(0, 212, 170, 0.3);
+    --plc-warning: #f59e0b;
+    --plc-danger: #ef4444;
+    --plc-success: #22c55e;
+    --plc-blue: #3b82f6;
+    --plc-input: #2563eb;
+    --plc-output: #dc2626;
+    --plc-merker: #9333ea;
+    --plc-wire: #6b7280;
+    --plc-wire-active: #00d4aa;
+    --plc-font-mono: 'JetBrains Mono', monospace;
+    --plc-font-sans: 'Inter', -apple-system, sans-serif;
+}
+
+/* Container */
+.plc-container {
+    font-family: var(--plc-font-sans);
+    background: var(--plc-bg-dark);
+    color: var(--plc-text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.plc-header {
+    background: linear-gradient(180deg, #2d323c 0%, #252932 100%);
+    border-bottom: 1px solid var(--plc-border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.plc-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--plc-accent);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Titolo visibile solo in fullscreen */
+.plc-logo span {
+    display: none;
+}
+
+.plc-container.fullscreen .plc-logo span {
+    display: inline;
+}
+
+.plc-icon {
+    width: 36px;
+    height: 36px;
+}
+
+.plc-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plc-btn {
+    background: var(--plc-bg-light);
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--plc-font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.plc-btn:hover {
+    background: var(--plc-border);
+    border-color: var(--plc-text-dim);
+}
+
+.plc-btn-run {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: var(--plc-success);
+    color: var(--plc-success);
+}
+
+.plc-btn-run:hover {
+    background: rgba(34, 197, 94, 0.25);
+}
+
+.plc-btn-run.active {
+    background: var(--plc-success);
+    color: #000;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+
+.plc-btn-stop {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--plc-danger);
+    color: var(--plc-danger);
+}
+
+.plc-btn-stop:hover {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+.plc-btn-primary {
+    background: var(--plc-accent);
+    border-color: var(--plc-accent);
+    color: #000;
+}
+
+.plc-btn-primary:hover {
+    background: #00eabb;
+}
+
+.plc-btn-danger {
+    background: var(--plc-danger);
+    border-color: var(--plc-danger);
+    color: #fff;
+}
+
+.plc-btn-cancel {
+    background: transparent;
+}
+
+.plc-btn-full {
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.plc-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--plc-border);
+    margin: 0 8px;
+}
+
+.plc-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--plc-bg-dark);
+    border-radius: 6px;
+    font-family: var(--plc-font-mono);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.plc-status-led {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--plc-danger);
+    box-shadow: 0 0 8px var(--plc-danger);
+    transition: all 0.2s ease;
+}
+
+.plc-status-led.running {
+    background: var(--plc-success);
+    box-shadow: 0 0 12px var(--plc-success);
+    animation: pulse 1s ease infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Main Layout */
+.plc-main {
+    display: grid;
+    grid-template-columns: 200px 1fr 280px;
+    flex: 1;
+    overflow: hidden;
+    transition: grid-template-columns 0.3s ease;
+}
+
+/* Pannelli collassati */
+.plc-main.toolbox-collapsed {
+    grid-template-columns: 40px 1fr 280px;
+}
+
+.plc-main.io-collapsed {
+    grid-template-columns: 200px 1fr 40px;
+}
+
+.plc-main.toolbox-collapsed.io-collapsed {
+    grid-template-columns: 40px 1fr 40px;
+}
+
+/* ==================== Panel Header & Collapse ==================== */
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--plc-bg-light);
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--plc-text-dim);
+}
+
+.panel-collapse-btn {
+    background: transparent;
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text-dim);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.panel-collapse-btn:hover {
+    background: var(--plc-accent);
+    color: #000;
+    border-color: var(--plc-accent);
+}
+
+.panel-content {
+    overflow-y: auto;
+    flex: 1;
+    padding: 16px;
+    transition: opacity 0.2s ease;
+}
+
+/* Toolbox collapsed */
+.plc-toolbox.collapsed .panel-content {
+    display: none;
+}
+
+.plc-toolbox.collapsed {
+    display: flex;
+    flex-direction: column;
+}
+
+.plc-toolbox.collapsed .panel-header {
+    display: flex;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 16px 8px;
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.plc-toolbox.collapsed .panel-header h3 {
+    transform: rotate(180deg);
+}
+
+.plc-toolbox.collapsed .panel-collapse-btn {
+    transform: rotate(180deg);
+}
+
+/* I/O Panel collapsed */
+.plc-io-panel.collapsed .panel-content {
+    display: none;
+}
+
+.plc-io-panel.collapsed {
+    display: flex;
+    flex-direction: column;
+}
+
+.plc-io-panel.collapsed .panel-header {
+    display: flex;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 16px 8px;
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.plc-io-panel.collapsed .panel-header h3 {
+    transform: rotate(180deg);
+}
+
+.plc-io-panel.collapsed .panel-collapse-btn {
+    transform: rotate(180deg);
+}
+
+/* ==================== RUN/STOP States ==================== */
+
+/* In STOP: I/O disabilitato */
+.plc-container.mode-stop .plc-io-panel .panel-content {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.plc-container.mode-stop .plc-io-panel .io-bit {
+    cursor: not-allowed;
+}
+
+.plc-container.mode-stop .plc-io-panel::after {
+    content: 'STOP';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--plc-danger);
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.plc-io-panel {
+    position: relative;
+}
+
+/* In RUN: Toolbox disabilitata */
+.plc-container.mode-run .plc-toolbox .panel-content {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.plc-container.mode-run .plc-toolbox .plc-tool {
+    cursor: not-allowed;
+}
+
+.plc-container.mode-run .plc-toolbox::after {
+    content: 'RUN';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--plc-success);
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.plc-toolbox {
+    position: relative;
+}
+
+/* In RUN: Editor in sola lettura */
+.plc-container.mode-run .plc-ladder-canvas {
+    pointer-events: none;
+}
+
+.plc-container.mode-run .ladder-element {
+    cursor: default;
+}
+
+.plc-container.mode-run .drop-zone {
+    display: none;
+}
+
+.plc-container.mode-run .rung-actions {
+    display: none;
+}
+
+/* Nascondo watermark quando pannello è collapsed */
+.plc-toolbox.collapsed::after,
+.plc-io-panel.collapsed::after {
+    display: none;
+}
+
+/* Toolbox */
+.plc-toolbox {
+    background: var(--plc-bg-medium);
+    border-right: 1px solid var(--plc-border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.plc-toolbox .panel-content {
+    padding: 0 16px 16px 16px;
+}
+
+.plc-toolbox h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--plc-text-dim);
+    margin: 0 0 12px 0;
+}
+
+.plc-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.plc-tool {
+    background: var(--plc-bg-light);
+    border: 1px solid var(--plc-border);
+    border-radius: 6px;
+    padding: 10px;
+    cursor: grab;
+    transition: all 0.15s ease;
+}
+
+.plc-tool:hover {
+    border-color: var(--plc-accent);
+    background: rgba(0, 212, 170, 0.1);
+}
+
+.plc-tool:active {
+    cursor: grabbing;
+}
+
+.tool-symbol {
+    font-family: var(--plc-font-mono);
+    font-size: 14px;
+    color: var(--plc-accent);
+    margin-bottom: 4px;
+}
+
+.plc-tool span {
+    font-size: 11px;
+    color: var(--plc-text-dim);
+}
+
+.plc-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--plc-border);
+}
+
+/* Editor */
+.plc-editor {
+    background: var(--plc-bg-dark);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.plc-editor-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--plc-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.plc-editor-header h2 {
+    display: none; /* Nome programma basta */
+}
+
+#program-name {
+    background: var(--plc-bg-light);
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: var(--plc-font-mono);
+    font-size: 13px;
+}
+
+.plc-ladder-canvas {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* Rung */
+.ladder-rung {
+    background: var(--plc-bg-medium);
+    border: 1px solid var(--plc-border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.rung-header {
+    background: var(--plc-bg-light);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.rung-number {
+    font-family: var(--plc-font-mono);
+    font-size: 12px;
+    color: var(--plc-text-dim);
+}
+
+.rung-comment {
+    font-size: 12px;
+    color: var(--plc-text-dim);
+    font-style: italic;
+}
+
+.rung-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.rung-actions button {
+    background: transparent;
+    border: none;
+    color: var(--plc-text-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.rung-actions button:hover {
+    background: var(--plc-border);
+    color: var(--plc-text);
+}
+
+.rung-content {
+    padding: 16px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+}
+
+.rung-rail-left, .rung-rail-right {
+    width: 4px;
+    background: var(--plc-wire);
+    align-self: stretch;
+    min-height: 60px;
+}
+
+.rung-rail-left.active, .rung-rail-right.active {
+    background: var(--plc-wire-active);
+    box-shadow: 0 0 8px var(--plc-accent-glow);
+}
+
+.rung-elements {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 60px;
+    padding: 0 8px;
+    position: relative;
+}
+
+.wire-segment {
+    height: 2px;
+    background: var(--plc-wire);
+    flex: 1;
+    min-width: 20px;
+}
+
+.wire-segment.active {
+    background: var(--plc-wire-active);
+    box-shadow: 0 0 4px var(--plc-accent-glow);
+}
+
+/* Ladder Elements */
+.ladder-element {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.ladder-element:hover {
+    background: rgba(0, 212, 170, 0.1);
+}
+
+.ladder-element.selected {
+    background: rgba(0, 212, 170, 0.2);
+    outline: 2px solid var(--plc-accent);
+}
+
+.ladder-element.dragging {
+    opacity: 0.5;
+    outline: 2px dashed var(--plc-accent);
+}
+
+.ladder-element[draggable="true"] {
+    cursor: grab;
+}
+
+.ladder-element[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.element-symbol {
+    font-family: var(--plc-font-mono);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    min-width: 60px;
+    position: relative;
+}
+
+/* Contact Symbols */
+.contact-no .element-symbol::before,
+.contact-nc .element-symbol::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 2px;
+    background: var(--plc-wire);
+    left: 0;
+}
+
+.contact-no .element-symbol::after,
+.contact-nc .element-symbol::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 2px;
+    background: var(--plc-wire);
+    right: 0;
+}
+
+.contact-symbol {
+    width: 24px;
+    height: 32px;
+    border: 2px solid var(--plc-text);
+    border-top: none;
+    border-bottom: none;
+    position: relative;
+}
+
+.contact-nc .contact-symbol::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 2px;
+    background: var(--plc-text);
+    transform: rotate(-45deg);
+    top: 50%;
+    left: 50%;
+    margin-left: -10px;
+    margin-top: -1px;
+}
+
+/* Coil Symbols */
+.coil .element-symbol,
+.coil-set .element-symbol,
+.coil-reset .element-symbol {
+    position: relative;
+}
+
+.coil-symbol {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--plc-text);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Timer/Counter Boxes */
+.timer-box, .counter-box, .compare-box {
+    border: 2px solid var(--plc-text);
+    padding: 4px 10px;
+    font-size: 11px;
+    min-width: 70px;
+    text-align: center;
+}
+
+.timer-box .box-type,
+.counter-box .box-type,
+.compare-box .box-type {
+    font-weight: 600;
+    border-bottom: 1px solid var(--plc-border);
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+/* Compare box specific */
+.compare-box {
+    min-width: 50px;
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--plc-blue);
+}
+
+.compare-box .box-type {
+    font-size: 14px;
+    color: var(--plc-blue);
+}
+
+/* CTUD box */
+.ctud-box {
+    min-width: 80px;
+}
+
+/* Edge detection contacts */
+.contact-symbol.edge-p,
+.contact-symbol.edge-n {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--plc-warning);
+}
+
+.contact-p .contact-symbol {
+    border-color: var(--plc-warning);
+}
+
+.contact-n .contact-symbol {
+    border-color: var(--plc-warning);
+}
+
+/* Element Active State */
+.ladder-element.active .contact-symbol,
+.ladder-element.active .coil-symbol {
+    border-color: var(--plc-accent);
+    box-shadow: 0 0 8px var(--plc-accent-glow);
+}
+
+.ladder-element.active .timer-box,
+.ladder-element.active .counter-box,
+.ladder-element.active .compare-box {
+    border-color: var(--plc-accent);
+    box-shadow: 0 0 8px var(--plc-accent-glow);
+}
+
+.element-address {
+    font-family: var(--plc-font-mono);
+    font-size: 10px;
+    color: var(--plc-text-dim);
+    margin-top: 4px;
+}
+
+.element-comment {
+    font-size: 9px;
+    color: var(--plc-text-dim);
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Branch */
+.rung-branch {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    margin: 8px 0;
+}
+
+/* ==================== BRANCH TIA PORTAL STYLE ==================== */
+.ladder-branch.tia-style {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    margin: 0 8px;
+}
+
+/* Linee verticali sinistra e destra */
+.branch-vertical-left,
+.branch-vertical-right {
+    width: 2px;
+    background: var(--plc-wire);
+    position: relative;
+}
+
+.ladder-branch.tia-style.active .branch-vertical-left,
+.ladder-branch.tia-style.active .branch-vertical-right {
+    background: var(--plc-wire-active);
+    box-shadow: 0 0 4px var(--plc-accent-glow);
+}
+
+/* Contenuto branch */
+.branch-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 80px;
+}
+
+/* Singola riga del branch */
+.branch-row {
+    display: flex;
+    align-items: center;
+    min-height: 50px;
+    position: relative;
+}
+
+/* Connettori orizzontali dal verticale al contenuto */
+.branch-h-left,
+.branch-h-right {
+    width: 10px;
+    height: 2px;
+    background: var(--plc-wire);
+}
+
+.branch-row.first .branch-h-left,
+.branch-row.first .branch-h-right {
+    /* Prima riga: connettore in alto */
+    align-self: flex-start;
+    margin-top: 24px;
+}
+
+.branch-row.last .branch-h-left,
+.branch-row.last .branch-h-right {
+    /* Ultima riga: connettore in basso */
+    align-self: flex-end;
+    margin-bottom: 24px;
+}
+
+.branch-row:not(.first):not(.last) .branch-h-left,
+.branch-row:not(.first):not(.last) .branch-h-right {
+    /* Righe intermedie: connettore al centro */
+    align-self: center;
+}
+
+/* Contenuto della riga (elementi) */
+.branch-row-content {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-height: 50px;
+    padding: 4px 0;
+}
+
+/* Wire passante per righe vuote */
+.wire-through {
+    flex: 1;
+    height: 2px;
+    background: var(--plc-wire);
+    min-width: 40px;
+}
+
+/* Wire orizzontale tra elementi */
+.wire-h {
+    width: 15px;
+    height: 2px;
+    background: var(--plc-wire);
+}
+
+/* Drop zone mini per rami vuoti */
+.drop-zone-mini {
+    width: 24px;
+    height: 24px;
+    border: 1px dashed var(--plc-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--plc-text-dim);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin: 0 4px;
+}
+
+.drop-zone-mini:hover,
+.drop-zone-mini.drag-over {
+    border-color: var(--plc-accent);
+    background: rgba(0, 212, 170, 0.1);
+    color: var(--plc-accent);
+}
+
+/* Controlli branch TIA style */
+.branch-controls-tia {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+}
+
+.ladder-branch.tia-style:hover > .branch-controls-tia {
+    opacity: 1;
+}
+
+.branch-btn-add,
+.branch-btn-del {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--plc-border);
+    background: var(--plc-bg-medium);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.branch-btn-add {
+    color: var(--plc-accent);
+}
+
+.branch-btn-add:hover {
+    background: var(--plc-accent);
+    color: #000;
+}
+
+.branch-btn-del {
+    color: var(--plc-danger);
+}
+
+.branch-btn-del:hover {
+    background: var(--plc-danger);
+    color: #fff;
+}
+
+/* Branch annidati - colori differenziati */
+.ladder-branch.tia-style[data-depth="1"] {
+    background: rgba(0, 212, 170, 0.03);
+    border-radius: 4px;
+}
+
+.ladder-branch.tia-style[data-depth="2"] {
+    background: rgba(245, 158, 11, 0.03);
+    border-radius: 4px;
+}
+
+.ladder-branch.tia-style[data-depth="3"] {
+    background: rgba(147, 51, 234, 0.03);
+    border-radius: 4px;
+}
+
+/* Multi-selezione */
+.ladder-element.multi-selected {
+    background: rgba(59, 130, 246, 0.2);
+    outline: 2px solid var(--plc-blue);
+}
+
+/* Indicatore selezione multipla */
+#selection-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--plc-blue);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 1000;
+    display: none;
+}
+
+/* Drop Zone */
+.drop-zone {
+    min-width: 60px;
+    min-height: 50px;
+    border: 2px dashed var(--plc-border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 8px;
+    transition: all 0.15s ease;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--plc-accent);
+    background: rgba(0, 212, 170, 0.1);
+}
+
+.drop-zone::after {
+    content: '+';
+    color: var(--plc-text-dim);
+    font-size: 20px;
+}
+
+/* I/O Panel */
+.plc-io-panel {
+    background: var(--plc-bg-medium);
+    border-left: 1px solid var(--plc-border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.plc-io-panel .panel-content {
+    padding: 0 16px 16px 16px;
+}
+
+.plc-io-section {
+    margin-bottom: 20px;
+}
+
+.plc-io-section h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.io-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.io-indicator.input { background: var(--plc-input); }
+.io-indicator.output { background: var(--plc-output); }
+.io-indicator.memory { background: var(--plc-merker); }
+
+.plc-io-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.io-bit {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 4px;
+    padding: 8px 4px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.io-bit:hover {
+    border-color: var(--plc-text-dim);
+}
+
+.io-bit.active {
+    background: var(--plc-success);
+    border-color: var(--plc-success);
+    color: #000;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.io-bit.input-bit.active {
+    background: var(--plc-input);
+    border-color: var(--plc-input);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+}
+
+.io-bit-label {
+    font-family: var(--plc-font-mono);
+    font-size: 10px;
+    display: block;
+}
+
+.io-bit-state {
+    font-family: var(--plc-font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 2px;
+    display: block;
+}
+
+/* Timers Display */
+.plc-timers, .plc-counters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ==================== Analog I/O ==================== */
+.io-indicator.analog-in { background: #f59e0b; }
+.io-indicator.analog-out { background: #8b5cf6; }
+
+.plc-analog-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.analog-io-item {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.analog-io-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.analog-io-label {
+    font-family: var(--plc-font-mono);
+    font-size: 11px;
+    color: var(--plc-text-dim);
+}
+
+.analog-io-value {
+    font-family: var(--plc-font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--plc-accent);
+}
+
+.analog-io-eng {
+    font-size: 10px;
+    color: var(--plc-text-dim);
+    margin-left: 4px;
+}
+
+.analog-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.analog-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 6px;
+    background: var(--plc-border);
+    border-radius: 3px;
+    outline: none;
+}
+
+.analog-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--plc-accent);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.analog-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--plc-accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.analog-bar {
+    height: 6px;
+    background: var(--plc-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.analog-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--plc-accent), #f59e0b);
+    transition: width 0.1s ease;
+}
+
+/* AQ output bar */
+.analog-io-item.aq .analog-bar-fill {
+    background: linear-gradient(90deg, #8b5cf6, #ec4899);
+}
+
+/* ==================== Hardware Config Modal ==================== */
+.hardware-config {
+    min-width: 500px;
+}
+
+.hardware-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.hardware-section:last-of-type {
+    border-bottom: none;
+}
+
+.hardware-section h3 {
+    font-size: 13px;
+    color: var(--plc-accent);
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.hardware-info {
+    background: var(--plc-bg-dark);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.hardware-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+
+.hardware-info-row span:first-child {
+    color: var(--plc-text-dim);
+}
+
+.expansions-list {
+    margin-bottom: 12px;
+}
+
+.expansion-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+}
+
+.expansion-item-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.expansion-item-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--plc-bg-light);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--plc-accent);
+}
+
+.expansion-item-name {
+    font-weight: 500;
+}
+
+.expansion-item-specs {
+    font-size: 11px;
+    color: var(--plc-text-dim);
+}
+
+.expansion-remove {
+    background: transparent;
+    border: none;
+    color: var(--plc-danger);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.expansion-remove:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.analog-summary {
+    background: var(--plc-bg-dark);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.summary-row:last-child {
+    border-bottom: none;
+}
+
+.summary-label {
+    color: var(--plc-text-dim);
+}
+
+.summary-value {
+    font-family: var(--plc-font-mono);
+    font-weight: 600;
+    color: var(--plc-accent);
+}
+
+.address-map {
+    margin-top: 12px;
+    font-family: var(--plc-font-mono);
+    font-size: 11px;
+}
+
+.address-map-title {
+    color: var(--plc-text-dim);
+    margin-bottom: 6px;
+}
+
+.address-map-row {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.address-map-row .addr {
+    color: var(--plc-accent);
+    min-width: 50px;
+}
+
+.address-map-row .desc {
+    color: var(--plc-text-dim);
+}
+
+.timer-display, .counter-display {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.timer-display.active, .counter-display.active {
+    border-color: var(--plc-accent);
+}
+
+.timer-name, .counter-name {
+    font-family: var(--plc-font-mono);
+    font-size: 11px;
+    color: var(--plc-text-dim);
+}
+
+.timer-value, .counter-value {
+    font-family: var(--plc-font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--plc-accent);
+}
+
+.timer-bar {
+    height: 4px;
+    background: var(--plc-border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.timer-bar-fill {
+    height: 100%;
+    background: var(--plc-accent);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+/* Modal */
+.plc-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.plc-modal.active {
+    display: flex;
+}
+
+.plc-modal-content {
+    background: var(--plc-bg-medium);
+    border: 1px solid var(--plc-border);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 400px;
+    max-width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.plc-modal-content h2 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+}
+
+.plc-form-group {
+    margin-bottom: 16px;
+}
+
+.plc-form-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--plc-text-dim);
+    margin-bottom: 6px;
+}
+
+.plc-form-group input,
+.plc-form-group select {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: var(--plc-font-mono);
+    font-size: 13px;
+    margin-right: 4px;
+}
+
+.plc-form-group input:focus,
+.plc-form-group select:focus {
+    outline: none;
+    border-color: var(--plc-accent);
+}
+
+.plc-modal-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.plc-programs-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.program-item {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.program-item:hover {
+    border-color: var(--plc-accent);
+    background: rgba(0, 212, 170, 0.1);
+}
+
+.program-item.selected {
+    border-color: var(--plc-accent);
+    background: rgba(0, 212, 170, 0.2);
+    box-shadow: 0 0 8px rgba(0, 212, 170, 0.3);
+}
+
+.program-item-name {
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.program-item-date {
+    font-size: 11px;
+    color: var(--plc-text-dim);
+    margin-top: 4px;
+    pointer-events: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--plc-bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--plc-border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--plc-text-dim);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .plc-main {
+        grid-template-columns: 180px 1fr 240px;
+    }
+}
+
+@media (max-width: 900px) {
+    .plc-main {
+        grid-template-columns: 1fr;
+    }
+    
+    .plc-toolbox, .plc-io-panel {
+        display: none;
+    }
+}
+
+/* ==================== Context Menu ==================== */
+.plc-context-menu {
+    position: fixed;
+    background: #f5f5f5;
+    border: 2px solid #00d4aa;
+    border-radius: 8px;
+    padding: 6px 0;
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 212, 170, 0.3);
+    z-index: 2000;
+    display: none;
+}
+
+.plc-context-menu.visible {
+    display: block;
+}
+
+.context-menu-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    position: relative;
+    transition: all 0.15s ease;
+    color: #1a1d23;
+}
+
+.context-menu-item:hover {
+    background: #00d4aa;
+    color: #000000;
+}
+
+.context-menu-item.danger {
+    color: #dc2626;
+}
+
+.context-menu-item.danger:hover {
+    background: #dc2626;
+    color: #ffffff;
+}
+
+.ctx-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 15px;
+}
+
+.ctx-arrow {
+    margin-left: auto;
+    font-size: 10px;
+    color: #666;
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: #ccc;
+    margin: 6px 0;
+}
+
+/* Submenu */
+.context-submenu {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: #f5f5f5;
+    border: 2px solid #00d4aa;
+    border-radius: 8px;
+    padding: 6px 0;
+    min-width: 180px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    display: none;
+}
+
+.context-menu-item:hover > .context-submenu {
+    display: block;
+}
+
+.context-submenu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #1a1d23;
+    transition: all 0.15s ease;
+}
+
+.context-submenu-item:hover {
+    background: #00d4aa;
+    color: #000000;
+}
+
+.context-submenu-item:hover {
+    background: var(--plc-bg-light);
+    color: var(--plc-accent);
+}
+
+/* ==================== Rung Sections (Inputs/Outputs) ==================== */
+.rung-content {
+    padding: 16px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+}
+
+.rung-section {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.rung-inputs {
+    flex: 1;
+    min-width: 200px;
+}
+
+.rung-outputs {
+    min-width: 150px;
+}
+
+.rung-inputs .rung-elements {
+    justify-content: flex-start;
+}
+
+.rung-outputs .rung-elements {
+    justify-content: flex-end;
+}
+
+.section-label {
+    position: absolute;
+    top: -18px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--plc-text-dim);
+    opacity: 0.6;
+}
+
+.rung-inputs .section-label {
+    left: 8px;
+    color: var(--plc-input);
+}
+
+.rung-outputs .section-label {
+    right: 8px;
+    color: var(--plc-output);
+}
+
+.rung-connector {
+    font-family: var(--plc-font-mono);
+    color: var(--plc-wire);
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    letter-spacing: -2px;
+}
+
+.rung-section .rung-elements {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 60px;
+    padding: 0 4px;
+    position: relative;
+}
+
+/* ==================== Buttons Disabled State ==================== */
+.plc-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.plc-btn:disabled:hover {
+    background: var(--plc-bg-light);
+    border-color: var(--plc-border);
+}
+
+/* ==================== Rung Active States for Sections ==================== */
+.rung-inputs.active .wire-segment,
+.rung-outputs.active .wire-segment {
+    background: var(--plc-wire-active);
+    box-shadow: 0 0 4px var(--plc-accent-glow);
+}
+
+/* Visual separator between inputs and outputs */
+.rung-connector::before,
+.rung-connector::after {
+    content: '';
+    width: 20px;
+    height: 2px;
+    background: var(--plc-wire);
+}
+
+.rung-content.power-on .rung-connector::before,
+.rung-content.power-on .rung-connector::after {
+    background: var(--plc-wire-active);
+}
+
+/* ==================== HMI Panel ==================== */
+.hmi-panel {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 100%;
+    max-width: 1400px;
+    height: 100vh;
+    background: var(--plc-bg-medium);
+    border-left: 2px solid var(--plc-accent);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 1500;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+}
+
+.hmi-panel.active {
+    right: 0;
+}
+
+/* Modalità RUN: nasconde toolbar design */
+.hmi-panel.run-mode #hmi-design-toolbar,
+.hmi-panel.run-mode .hmi-pages-bar,
+.hmi-panel.run-mode .hmi-model-selector {
+    display: none !important;
+}
+
+.hmi-panel.run-mode .hmi-header {
+    padding: 8px 16px;
+}
+
+.hmi-header {
+    background: var(--plc-bg-light);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.hmi-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.hmi-header-top h2 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--plc-accent);
+}
+
+.hmi-header-top .panel-collapse-btn {
+    background: transparent;
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+.hmi-header-top .panel-collapse-btn:hover {
+    background: var(--plc-danger);
+    border-color: var(--plc-danger);
+    color: white;
+}
+
+.hmi-header h2 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: var(--plc-accent);
+}
+
+/* Nascondo h2 se c'è header-top */
+.hmi-header-top + .hmi-toolbar .hmi-header h2 {
+    display: none;
+}
+
+.hmi-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.hmi-toolbar .plc-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+.hmi-tool-icon {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.led-icon {
+    background: var(--plc-success);
+    border-radius: 50%;
+}
+
+.btn-icon {
+    background: var(--plc-blue);
+    border-radius: 3px;
+}
+
+.switch-icon {
+    background: linear-gradient(90deg, var(--plc-border) 50%, var(--plc-accent) 50%);
+    border-radius: 6px;
+}
+
+.display-icon {
+    background: #000;
+    border: 1px solid var(--plc-accent);
+}
+
+.slider-icon {
+    background: var(--plc-border);
+    border-radius: 2px;
+    position: relative;
+}
+
+.slider-icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--plc-accent);
+}
+
+.gauge-icon {
+    border: 2px solid var(--plc-accent);
+    border-radius: 50%;
+    border-bottom-color: transparent;
+}
+
+.hmi-canvas {
+    flex: 1;
+    padding: 0;
+    overflow: auto;
+    position: relative;
+    background: 
+        linear-gradient(rgba(61, 68, 81, 0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(61, 68, 81, 0.3) 1px, transparent 1px);
+    background-size: 20px 20px;
+    min-height: 400px;
+}
+
+/* ==================== HMI Model Selector ==================== */
+.hmi-model-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 20px;
+}
+
+.hmi-model-selector label {
+    font-size: 12px;
+    color: var(--plc-text-dim);
+}
+
+.hmi-model-selector select {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.hmi-model-selector select:hover {
+    border-color: var(--plc-accent);
+}
+
+/* ==================== HMI Device Container ==================== */
+.hmi-device-container {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 20px;
+    overflow: auto; /* scroll sia X che Y */
+    background: #1a1d23;
+    min-height: 300px;
+}
+
+/* Centra solo se c'è spazio sufficiente */
+@media (min-width: 1200px) {
+    .hmi-device-container {
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Wrapper per scalare HMI */
+.hmi-device-wrapper {
+    transform-origin: top left;
+    transition: transform 0.2s ease;
+}
+
+/* ==================== HMI Device Frame ==================== */
+.hmi-device {
+    display: flex;
+    flex-direction: column;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 
+        0 10px 40px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: all 0.3s ease;
+}
+
+/* Basic series - grigio chiaro stile Siemens */
+.hmi-device[data-model^="KTP"] {
+    background: linear-gradient(180deg, #d8d8d8 0%, #c0c0c0 50%, #b0b0b0 100%);
+    border: 4px solid #909090;
+    box-shadow: 
+        0 10px 40px rgba(0,0,0,0.5),
+        inset 0 2px 0 rgba(255,255,255,0.3),
+        inset 0 -2px 0 rgba(0,0,0,0.1),
+        0 0 0 1px #808080;
+}
+
+/* Comfort series - nero/antracite elegante */
+.hmi-device[data-model^="TP"] {
+    background: linear-gradient(180deg, #404040 0%, #2a2a2a 50%, #1a1a1a 100%);
+    border: 4px solid #0a0a0a;
+    box-shadow: 
+        0 10px 40px rgba(0,0,0,0.7),
+        inset 0 2px 0 rgba(255,255,255,0.1),
+        inset 0 -2px 0 rgba(0,0,0,0.3),
+        0 0 0 1px #000;
+}
+
+/* Top bar con logo Siemens */
+.hmi-device-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 15px;
+    min-height: 30px;
+}
+
+.hmi-device[data-model^="KTP"] .hmi-device-top {
+    background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+    border-bottom: 1px solid #a0a0a0;
+}
+
+.hmi-device[data-model^="TP"] .hmi-device-top {
+    background: linear-gradient(180deg, #404040 0%, #303030 100%);
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.hmi-device-logo {
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    font-size: 16px;
+    letter-spacing: 3px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.hmi-device[data-model^="KTP"] .hmi-device-logo {
+    color: #009999;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.hmi-device[data-model^="TP"] .hmi-device-logo {
+    color: #00c8c8;
+    text-shadow: 0 0 10px rgba(0,200,200,0.3);
+}
+
+.hmi-device-model-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+
+.hmi-device[data-model^="KTP"] .hmi-device-model-label {
+    color: #666;
+}
+
+.hmi-device[data-model^="TP"] .hmi-device-model-label {
+    color: #888;
+}
+
+/* Body principale */
+.hmi-device-body {
+    display: flex;
+    align-items: stretch;
+    padding: 10px;
+    gap: 10px;
+}
+
+/* Screen container */
+.hmi-device-screen {
+    flex: 1;
+    display: flex;
+}
+
+.hmi-screen-bezel {
+    flex: 1;
+    background: #0a0a0a;
+    border-radius: 4px;
+    padding: 6px;
+    box-shadow: 
+        inset 0 3px 8px rgba(0,0,0,0.8),
+        inset 0 -1px 0 rgba(255,255,255,0.05),
+        0 2px 4px rgba(0,0,0,0.3);
+}
+
+.hmi-screen-bezel .hmi-canvas {
+    border-radius: 2px;
+    min-height: auto;
+    height: 100%;
+    background-color: #1e2430;
+    box-shadow: 
+        inset 0 0 20px rgba(0,0,0,0.5),
+        0 0 1px rgba(255,255,255,0.1);
+}
+
+/* ==================== Function Keys ==================== */
+.hmi-fkeys {
+    display: flex;
+    gap: 6px;
+}
+
+.hmi-fkeys-left,
+.hmi-fkeys-right {
+    flex-direction: column;
+    justify-content: space-around;
+    padding: 5px 0;
+}
+
+.hmi-fkeys-bottom {
+    flex-direction: row;
+    justify-content: center;
+    padding: 8px 15px;
+}
+
+.hmi-device[data-model^="KTP"] .hmi-fkeys-bottom {
+    background: linear-gradient(180deg, #c8c8c8 0%, #b0b0b0 100%);
+    border-top: 1px solid #a0a0a0;
+}
+
+.hmi-device[data-model^="TP"] .hmi-fkeys-bottom {
+    display: none;
+}
+
+.hmi-device[data-model^="KTP"] .hmi-fkeys-left,
+.hmi-device[data-model^="KTP"] .hmi-fkeys-right {
+    display: none;
+}
+
+.hmi-fkey {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--plc-font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    user-select: none;
+}
+
+/* Basic function keys - orizzontali in basso */
+.hmi-fkeys-bottom .hmi-fkey {
+    width: 50px;
+    height: 28px;
+    background: linear-gradient(180deg, #e0e0e0 0%, #c0c0c0 100%);
+    border: 1px solid #909090;
+    border-radius: 4px;
+    color: #333;
+    box-shadow: 
+        0 2px 4px rgba(0,0,0,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.hmi-fkeys-bottom .hmi-fkey:hover {
+    background: linear-gradient(180deg, #f0f0f0 0%, #d0d0d0 100%);
+}
+
+.hmi-fkeys-bottom .hmi-fkey:active {
+    background: linear-gradient(180deg, #b0b0b0 0%, #c0c0c0 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Comfort function keys - verticali ai lati */
+.hmi-fkeys-left .hmi-fkey,
+.hmi-fkeys-right .hmi-fkey {
+    width: 28px;
+    height: 36px;
+    background: linear-gradient(180deg, #505050 0%, #353535 100%);
+    border: 1px solid #252525;
+    border-radius: 3px;
+    color: #aaa;
+    box-shadow: 
+        0 2px 4px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.hmi-fkeys-left .hmi-fkey:hover,
+.hmi-fkeys-right .hmi-fkey:hover {
+    background: linear-gradient(180deg, #606060 0%, #454545 100%);
+    color: #fff;
+}
+
+.hmi-fkeys-left .hmi-fkey:active,
+.hmi-fkeys-right .hmi-fkey:active {
+    background: linear-gradient(180deg, #303030 0%, #404040 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.hmi-fkey.pressed {
+    background: var(--plc-accent) !important;
+    color: #000 !important;
+}
+
+/* Bottom label */
+.hmi-device-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 15px;
+    min-height: 24px;
+}
+
+.hmi-device[data-model^="KTP"] .hmi-device-bottom {
+    background: linear-gradient(180deg, #b8b8b8 0%, #a0a0a0 100%);
+}
+
+.hmi-device[data-model^="TP"] .hmi-device-bottom {
+    background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%);
+}
+
+.hmi-device-model-name {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.hmi-device[data-model^="KTP"] .hmi-device-model-name {
+    color: #555;
+}
+
+.hmi-device[data-model^="TP"] .hmi-device-model-name {
+    color: #777;
+}
+
+/* ==================== HMI Model Sizes ==================== */
+/* KTP400 Basic - 4.3" 480x272 */
+.hmi-device[data-model="KTP400"] .hmi-canvas {
+    width: 480px;
+    height: 272px;
+}
+
+/* KTP700 Basic - 7" 800x480 */
+.hmi-device[data-model="KTP700"] .hmi-canvas {
+    width: 800px;
+    height: 480px;
+}
+
+/* KTP900 Basic - 9" 800x480 */
+.hmi-device[data-model="KTP900"] .hmi-canvas {
+    width: 800px;
+    height: 480px;
+}
+
+/* KTP1200 Basic - 12" 1280x800 */
+.hmi-device[data-model="KTP1200"] .hmi-canvas {
+    width: 1280px;
+    height: 800px;
+}
+
+/* TP700 Comfort - 7" 800x480 */
+.hmi-device[data-model="TP700"] .hmi-canvas {
+    width: 800px;
+    height: 480px;
+}
+
+/* TP900 Comfort - 9" 800x480 */
+.hmi-device[data-model="TP900"] .hmi-canvas {
+    width: 800px;
+    height: 480px;
+}
+
+/* TP1200 Comfort - 12" 1280x800 */
+.hmi-device[data-model="TP1200"] .hmi-canvas {
+    width: 1280px;
+    height: 800px;
+}
+
+/* TP1500 Comfort - 15" 1280x800 */
+.hmi-device[data-model="TP1500"] .hmi-canvas {
+    width: 1280px;
+    height: 800px;
+}
+
+/* Scale per viewport piccoli */
+@media (max-width: 1400px) {
+    .hmi-device[data-model="KTP1200"] .hmi-canvas,
+    .hmi-device[data-model="TP1200"] .hmi-canvas,
+    .hmi-device[data-model="TP1500"] .hmi-canvas {
+        transform: scale(0.8);
+        transform-origin: top left;
+    }
+}
+
+.hmi-empty-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--plc-text-dim);
+    padding: 40px;
+}
+
+.hmi-empty-message p {
+    margin: 8px 0;
+}
+
+/* HMI Elements - Posizionamento assoluto */
+.hmi-element {
+    position: absolute;
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: move;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+}
+
+.hmi-element:hover {
+    border-color: var(--plc-accent);
+    box-shadow: 0 0 10px var(--plc-accent-glow);
+}
+
+.hmi-element.selected {
+    outline: 2px solid var(--plc-accent);
+    z-index: 100;
+}
+
+.hmi-element.dragging {
+    opacity: 0.8;
+    z-index: 200;
+    cursor: grabbing;
+}
+
+.hmi-element.resizing {
+    z-index: 200;
+}
+
+/* Resize Handles */
+.hmi-resize-handles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.hmi-element.selected .hmi-resize-handles,
+.hmi-element:hover .hmi-resize-handles {
+    opacity: 1;
+}
+
+.hmi-resize-handle {
+    position: absolute;
+    background: var(--plc-accent);
+    pointer-events: auto;
+}
+
+.hmi-resize-se {
+    right: -4px;
+    bottom: -4px;
+    width: 10px;
+    height: 10px;
+    cursor: se-resize;
+    border-radius: 2px;
+}
+
+.hmi-resize-e {
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 20px;
+    cursor: e-resize;
+    border-radius: 2px;
+}
+
+.hmi-resize-s {
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 6px;
+    cursor: s-resize;
+    border-radius: 2px;
+}
+
+.hmi-element-label {
+    font-size: 10px;
+    color: var(--plc-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.hmi-element-address {
+    font-family: var(--plc-font-mono);
+    font-size: 9px;
+    color: var(--plc-text-dim);
+    text-align: center;
+    margin-top: 6px;
+}
+
+/* HMI LED */
+.hmi-led {
+    text-align: center;
+}
+
+.hmi-led-light {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin: 0 auto;
+    background: #333;
+    border: 3px solid #555;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    transition: all 0.1s ease;
+}
+
+.hmi-led-light.on {
+    box-shadow: 
+        inset 0 2px 4px rgba(255,255,255,0.3),
+        0 0 20px currentColor;
+}
+
+.hmi-led-light.on.green { background: #22c55e; border-color: #16a34a; color: #22c55e; }
+.hmi-led-light.on.red { background: #ef4444; border-color: #dc2626; color: #ef4444; }
+.hmi-led-light.on.yellow { background: #eab308; border-color: #ca8a04; color: #eab308; }
+.hmi-led-light.on.blue { background: #3b82f6; border-color: #2563eb; color: #3b82f6; }
+.hmi-led-light.on.orange { background: #f97316; border-color: #ea580c; color: #f97316; }
+.hmi-led-light.on.white { background: #f5f5f5; border-color: #e5e5e5; color: #f5f5f5; }
+
+/* HMI Button */
+.hmi-button {
+    text-align: center;
+}
+
+.hmi-button-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
+    border: 3px solid #718096;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--plc-text);
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.hmi-button-btn:hover {
+    background: linear-gradient(180deg, #5a6578 0%, #3d4758 100%);
+}
+
+.hmi-button-btn:active,
+.hmi-button-btn.pressed {
+    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    border-color: var(--plc-accent);
+    box-shadow: 0 0 15px var(--plc-accent-glow);
+}
+
+.hmi-button-btn.green:active, .hmi-button-btn.green.pressed { border-color: #22c55e; box-shadow: 0 0 15px rgba(34, 197, 94, 0.5); }
+.hmi-button-btn.red:active, .hmi-button-btn.red.pressed { border-color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+.hmi-button-btn.blue:active, .hmi-button-btn.blue.pressed { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+
+/* HMI Switch */
+.hmi-switch {
+    text-align: center;
+}
+
+.hmi-switch-track {
+    width: 60px;
+    height: 30px;
+    border-radius: 15px;
+    margin: 0 auto;
+    background: #333;
+    border: 2px solid #555;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.hmi-switch-track.on {
+    background: var(--plc-accent);
+    border-color: #00b894;
+}
+
+.hmi-switch-knob {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.hmi-switch-track.on .hmi-switch-knob {
+    left: 32px;
+}
+
+/* HMI Display */
+.hmi-display {
+    text-align: center;
+    min-width: 120px;
+}
+
+.hmi-display-screen {
+    background: #000;
+    border: 2px solid #333;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    color: #00ff00;
+    text-shadow: 0 0 10px currentColor;
+    min-width: 80px;
+    text-align: right;
+}
+
+.hmi-display-screen.red { color: #ff0000; }
+.hmi-display-screen.blue { color: #00aaff; }
+.hmi-display-screen.yellow { color: #ffff00; }
+.hmi-display-screen.white { color: #ffffff; }
+
+/* HMI Slider */
+.hmi-slider {
+    text-align: center;
+    min-width: 150px;
+}
+
+.hmi-slider-container {
+    padding: 10px 0;
+}
+
+.hmi-slider-input {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--plc-border);
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+
+.hmi-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--plc-accent);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 212, 170, 0.5);
+}
+
+.hmi-slider-input::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--plc-accent);
+    cursor: pointer;
+    border: none;
+}
+
+.hmi-slider-value {
+    font-family: var(--plc-font-mono);
+    font-size: 18px;
+    color: var(--plc-accent);
+    margin-top: 6px;
+}
+
+/* HMI Gauge */
+.hmi-gauge {
+    text-align: center;
+    min-width: 120px;
+}
+
+.hmi-gauge-container {
+    width: 100px;
+    height: 60px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.hmi-gauge-bg {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 8px solid var(--plc-border);
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    transform: rotate(225deg);
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.hmi-gauge-fill {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 8px solid var(--plc-accent);
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    transform: rotate(225deg);
+    position: absolute;
+    top: 0;
+    left: 0;
+    clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
+    transition: transform 0.3s ease;
+}
+
+.hmi-gauge-value {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--plc-font-mono);
+    font-size: 16px;
+    color: var(--plc-accent);
+}
+
+.hmi-gauge-label-min,
+.hmi-gauge-label-max {
+    position: absolute;
+    bottom: 0;
+    font-size: 9px;
+    color: var(--plc-text-dim);
+}
+
+.hmi-gauge-label-min { left: 5px; }
+.hmi-gauge-label-max { right: 5px; }
+
+/* HMI Element Edit Badge */
+.hmi-element::after {
+    content: '...';
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-size: 14px;
+    color: var(--plc-text-dim);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.hmi-element:hover::after {
+    opacity: 1;
+}
+
+/* HMI Button Active State */
+#btn-hmi.active {
+    background: var(--plc-accent);
+    color: #000;
+}
+
+/* HMI Snap Grid Checkbox */
+.hmi-snap-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--plc-text-dim);
+    cursor: pointer;
+}
+
+.hmi-snap-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--plc-accent);
+    cursor: pointer;
+}
+
+/* HMI Background Opacity Slider */
+.hmi-opacity-group {
+    display: flex;
+    align-items: center;
+}
+
+.hmi-opacity-group input[type="range"] {
+    width: 60px;
+    height: 6px;
+    -webkit-appearance: none;
+    background: var(--plc-border);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.hmi-opacity-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--plc-accent);
+    cursor: pointer;
+}
+
+.hmi-opacity-group input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--plc-accent);
+    border: none;
+    cursor: pointer;
+}
+
+/* HMI Element responsive content */
+.hmi-element .hmi-element-label {
+    font-size: 10px;
+    color: var(--plc-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.hmi-element .hmi-element-address {
+    font-family: var(--plc-font-mono);
+    font-size: 9px;
+    color: var(--plc-text-dim);
+    text-align: center;
+    margin-top: 4px;
+}
+
+/* Adatta elementi al resize */
+.hmi-led .hmi-led-light {
+    width: 50%;
+    max-width: 50px;
+    aspect-ratio: 1;
+}
+
+.hmi-button .hmi-button-btn {
+    width: 80%;
+    padding: 8px 12px;
+}
+
+.hmi-display .hmi-display-screen {
+    width: 90%;
+    font-size: clamp(14px, 4vw, 24px);
+}
+
+.hmi-slider .hmi-slider-container {
+    width: 90%;
+}
+
+.hmi-gauge .hmi-gauge-container {
+    width: 80%;
+    max-width: 100px;
+}
+
+/* ==================== HMI Simboli Industriali ==================== */
+
+/* Icone toolbar */
+.motor-icon {
+    border: 2px solid var(--plc-accent);
+    border-radius: 50%;
+}
+
+.valve-icon {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 10px solid var(--plc-accent);
+}
+
+.pump-icon {
+    border: 2px solid var(--plc-accent);
+    border-radius: 50%;
+    position: relative;
+}
+
+.pump-icon::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: var(--plc-accent);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.tank-icon {
+    border: 2px solid var(--plc-accent);
+    border-radius: 2px;
+    position: relative;
+}
+
+.tank-icon::after {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    left: 1px;
+    right: 1px;
+    height: 50%;
+    background: var(--plc-accent);
+    opacity: 0.5;
+}
+
+.conveyor-icon {
+    background: linear-gradient(0deg, var(--plc-accent) 20%, transparent 20%, transparent 80%, var(--plc-accent) 80%);
+    border-radius: 6px;
+}
+
+.light-icon {
+    background: linear-gradient(180deg, #ef4444 30%, #f59e0b 30% 60%, #22c55e 60%);
+    border-radius: 3px;
+}
+
+/* Motor */
+.hmi-motor {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+}
+
+.hmi-motor-svg {
+    width: 80%;
+    max-width: 60px;
+    color: var(--plc-text-dim);
+    transition: color 0.3s ease;
+}
+
+.hmi-motor.running .hmi-motor-svg {
+    color: var(--plc-success);
+}
+
+.hmi-motor.running .hmi-motor-rotor {
+    animation: motor-spin 0.5s linear infinite;
+    transform-origin: 30px 30px;
+}
+
+@keyframes motor-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Valve */
+.hmi-valve {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+}
+
+.hmi-valve-svg {
+    width: 70%;
+    max-width: 40px;
+    color: var(--plc-danger);
+    transition: color 0.3s ease;
+}
+
+.hmi-valve.open .hmi-valve-svg {
+    color: var(--plc-success);
+}
+
+.hmi-valve.open .hmi-valve-svg polygon {
+    fill: rgba(34, 197, 94, 0.3);
+}
+
+/* Pump */
+.hmi-pump {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+}
+
+.hmi-pump-svg {
+    width: 80%;
+    max-width: 60px;
+    color: var(--plc-text-dim);
+    transition: color 0.3s ease;
+}
+
+.hmi-pump.running .hmi-pump-svg {
+    color: var(--plc-success);
+}
+
+.hmi-pump.running .hmi-pump-impeller {
+    animation: pump-spin 0.3s linear infinite;
+    transform-origin: 30px 30px;
+}
+
+@keyframes pump-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Tank */
+.hmi-tank {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    position: relative;
+}
+
+.hmi-tank-svg {
+    width: 80%;
+    max-width: 60px;
+    color: var(--plc-text);
+}
+
+.hmi-tank-fill {
+    fill: var(--plc-blue);
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+.hmi-tank-value {
+    position: absolute;
+    bottom: 5px;
+    font-family: var(--plc-font-mono);
+    font-size: 12px;
+    color: var(--plc-accent);
+}
+
+/* Conveyor */
+.hmi-conveyor {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+}
+
+.hmi-conveyor-svg {
+    width: 90%;
+    max-width: 120px;
+    color: var(--plc-text-dim);
+    transition: color 0.3s ease;
+}
+
+.hmi-conveyor.running .hmi-conveyor-svg {
+    color: var(--plc-success);
+}
+
+.hmi-conveyor.running .hmi-conveyor-arrow {
+    animation: conveyor-move 1s linear infinite;
+}
+
+@keyframes conveyor-move {
+    from { stroke-dashoffset: 20; }
+    to { stroke-dashoffset: 0; }
+}
+
+.hmi-conveyor-arrow {
+    stroke-dasharray: 10 10;
+}
+
+/* Traffic Light / Semaforo */
+.hmi-light {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    padding: 4px;
+    background: #333;
+    border-radius: 8px;
+}
+
+.hmi-light-lamp {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.hmi-light-lamp.red {
+    background: #4a1515;
+    box-shadow: none;
+}
+
+.hmi-light-lamp.red.on {
+    background: #ef4444;
+    box-shadow: 0 0 15px #ef4444;
+}
+
+.hmi-light-lamp.yellow {
+    background: #4a4015;
+    box-shadow: none;
+}
+
+.hmi-light-lamp.yellow.on {
+    background: #f59e0b;
+    box-shadow: 0 0 15px #f59e0b;
+}
+
+.hmi-light-lamp.green {
+    background: #154a15;
+    box-shadow: none;
+}
+
+.hmi-light-lamp.green.on {
+    background: #22c55e;
+    box-shadow: 0 0 15px #22c55e;
+}
+
+/* ==================== HMI Bargraph e Testo ==================== */
+
+/* Icone toolbar */
+.bargraph-icon {
+    background: linear-gradient(0deg, var(--plc-accent) 60%, transparent 60%);
+    border: 1px solid var(--plc-accent);
+}
+
+.text-icon {
+    font-family: serif;
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--plc-accent);
+    line-height: 12px;
+    text-align: center;
+}
+
+.text-icon::after {
+    content: 'T';
+}
+
+/* Bargraph */
+.hmi-bargraph {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    width: 100%;
+    padding: 4px;
+}
+
+.hmi-bargraph-container {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    min-height: 60px;
+}
+
+.hmi-bargraph-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0%;
+    transition: height 0.2s ease;
+}
+
+.hmi-bargraph-fill.green {
+    background: linear-gradient(0deg, #22c55e, #4ade80);
+}
+
+.hmi-bargraph-fill.blue {
+    background: linear-gradient(0deg, #3b82f6, #60a5fa);
+}
+
+.hmi-bargraph-fill.red {
+    background: linear-gradient(0deg, #ef4444, #f87171);
+}
+
+.hmi-bargraph-fill.yellow {
+    background: linear-gradient(0deg, #f59e0b, #fbbf24);
+}
+
+.hmi-bargraph-ticks {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    bottom: 2px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 8px;
+    color: var(--plc-text-dim);
+    pointer-events: none;
+}
+
+.hmi-bargraph-value {
+    font-family: var(--plc-font-mono);
+    font-size: 12px;
+    color: var(--plc-accent);
+    margin-top: 4px;
+}
+
+/* Testo Dinamico */
+.hmi-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    width: 100%;
+    padding: 4px;
+}
+
+.hmi-text-content {
+    font-family: var(--plc-font-mono);
+    font-size: 14px;
+    color: var(--plc-text);
+    text-align: center;
+    word-break: break-word;
+}
+
+/* ==================== HMI Multi-Pagina ==================== */
+
+.hmi-pages-bar {
+    display: flex;
+    align-items: center;
+    background: var(--plc-bg-dark);
+    border-bottom: 1px solid var(--plc-border);
+    padding: 4px 8px;
+    gap: 4px;
+    overflow-x: auto;
+}
+
+.hmi-pages-tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    overflow-x: auto;
+}
+
+.hmi-page-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--plc-bg-light);
+    border: 1px solid var(--plc-border);
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--plc-text-dim);
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.hmi-page-tab:hover {
+    background: var(--plc-bg-medium);
+    color: var(--plc-text);
+}
+
+.hmi-page-tab.active {
+    background: var(--plc-accent);
+    border-color: var(--plc-accent);
+    color: #000;
+    font-weight: 600;
+}
+
+.hmi-page-name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hmi-page-delete {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    opacity: 0.6;
+}
+
+.hmi-page-delete:hover {
+    opacity: 1;
+}
+
+.hmi-page-tab.active .hmi-page-delete:hover {
+    color: var(--plc-danger);
+}
+
+.hmi-add-page-btn {
+    padding: 4px 10px !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+}
+
+/* ==================== TREND GRAPH ==================== */
+.hmi-trend {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.hmi-trend-label {
+    font-size: 10px;
+    color: var(--plc-text-dim);
+    padding: 4px;
+}
+
+.hmi-trend-canvas {
+    flex: 1;
+    background: #000;
+    border: 1px solid var(--plc-border);
+    border-radius: 4px;
+}
+
+.trend-icon {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--plc-accent);
+    border-radius: 2px;
+    position: relative;
+}
+
+.trend-icon::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 1px;
+    width: 8px;
+    height: 4px;
+    border-bottom: 2px solid var(--plc-accent);
+    border-left: 2px solid var(--plc-accent);
+    transform: skewY(-20deg);
+}
+
+/* ==================== ALARM SYSTEM ==================== */
+.alarm-icon {
+    width: 12px;
+    height: 12px;
+    background: var(--plc-danger);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.alarm-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--plc-danger);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse-badge 1s ease infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Pannello Allarmi */
+.alarm-panel {
+    position: fixed;
+    top: 60px;
+    right: -450px;
+    width: 450px;
+    height: calc(100vh - 60px);
+    background: var(--plc-bg-medium);
+    border-left: 2px solid var(--plc-danger);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 1600;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+}
+
+.alarm-panel.active {
+    right: 0;
+}
+
+.alarm-header {
+    background: linear-gradient(180deg, #3d2626 0%, #2d1a1a 100%);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.alarm-header h2 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: var(--plc-danger);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alarm-header h2::before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background: var(--plc-danger);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    animation: flash-alarm 0.5s ease infinite;
+}
+
+@keyframes flash-alarm {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.alarm-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.alarm-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.alarm-section {
+    margin-bottom: 20px;
+}
+
+.alarm-section h3 {
+    font-size: 12px;
+    color: var(--plc-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+/* Lista allarmi attivi */
+.alarm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alarm-item {
+    background: var(--plc-bg-dark);
+    border-left: 4px solid;
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slide-in-alarm 0.3s ease;
+}
+
+@keyframes slide-in-alarm {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.alarm-item.high { border-color: var(--plc-danger); }
+.alarm-item.medium { border-color: var(--plc-warning); }
+.alarm-item.low { border-color: #eab308; }
+.alarm-item.info { border-color: var(--plc-blue); }
+
+.alarm-item.unacked {
+    animation: blink-alarm 1s ease infinite;
+}
+
+@keyframes blink-alarm {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.alarm-item.acked {
+    opacity: 0.7;
+}
+
+.alarm-icon-small {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.alarm-item.high .alarm-icon-small { color: var(--plc-danger); }
+.alarm-item.medium .alarm-icon-small { color: var(--plc-warning); }
+.alarm-item.low .alarm-icon-small { color: #eab308; }
+.alarm-item.info .alarm-icon-small { color: var(--plc-blue); }
+
+.alarm-details {
+    flex: 1;
+}
+
+.alarm-msg {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.alarm-time {
+    font-size: 10px;
+    color: var(--plc-text-dim);
+    font-family: var(--plc-font-mono);
+    margin-top: 2px;
+}
+
+.alarm-var {
+    font-family: var(--plc-font-mono);
+    font-size: 10px;
+    color: var(--plc-accent);
+}
+
+.alarm-ack-btn {
+    background: transparent;
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text-dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.15s;
+}
+
+.alarm-ack-btn:hover {
+    border-color: var(--plc-accent);
+    color: var(--plc-accent);
+}
+
+.alarm-empty {
+    color: var(--plc-text-dim);
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Lista configurazione allarmi */
+.alarm-config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.alarm-config-item {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.alarm-config-item:hover {
+    border-color: var(--plc-accent);
+}
+
+.alarm-config-item .alarm-priority-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.alarm-config-item .alarm-priority-dot.high { background: var(--plc-danger); }
+.alarm-config-item .alarm-priority-dot.medium { background: var(--plc-warning); }
+.alarm-config-item .alarm-priority-dot.low { background: #eab308; }
+.alarm-config-item .alarm-priority-dot.info { background: var(--plc-blue); }
+
+.alarm-config-item .config-msg {
+    flex: 1;
+    font-size: 12px;
+}
+
+.alarm-config-item .config-var {
+    font-family: var(--plc-font-mono);
+    font-size: 10px;
+    color: var(--plc-text-dim);
+}
+
+.alarm-config-item .config-enabled {
+    color: var(--plc-success);
+    font-size: 14px;
+}
+
+.alarm-config-item .config-disabled {
+    color: var(--plc-text-dim);
+    font-size: 14px;
+}
+
+/* Storico allarmi */
+.alarm-history {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.alarm-history-item {
+    font-size: 11px;
+    padding: 6px 10px;
+    background: var(--plc-bg-dark);
+    border-radius: 4px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.alarm-history-item .hist-time {
+    font-family: var(--plc-font-mono);
+    font-size: 9px;
+    color: var(--plc-text-dim);
+    min-width: 60px;
+}
+
+.alarm-history-item .hist-type {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.alarm-history-item .hist-type.in { background: var(--plc-danger); color: #fff; }
+.alarm-history-item .hist-type.out { background: var(--plc-success); color: #fff; }
+.alarm-history-item .hist-type.ack { background: var(--plc-blue); color: #fff; }
+
+.alarm-history-item .hist-msg {
+    flex: 1;
+    color: var(--plc-text);
+}
+
+/* Modal Allarme */
+#alarm-config-modal .plc-modal-content {
+    max-width: 400px;
+}
+
+#alarm-condition + #alarm-threshold {
+    margin-left: 8px;
+}
+
+
+/* ==================== IMPIANTO VIRTUALE (Scene) ==================== */
+.scene-panel {
+    display: none;
+    position: fixed;
+    top: 60px;
+    right: 0;
+    width: 900px;
+    max-width: 95vw;
+    height: calc(100vh - 60px);
+    background: var(--plc-bg-dark);
+    border-left: 2px solid var(--plc-accent);
+    z-index: 900;
+    flex-direction: column;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+}
+
+.scene-panel.active {
+    display: flex;
+}
+
+.scene-header {
+    background: linear-gradient(90deg, var(--plc-bg-medium), var(--plc-bg-light));
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.scene-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--plc-accent);
+}
+
+.scene-header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.scene-header-controls select {
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.plc-btn-small {
+    padding: 4px 8px;
+    font-size: 14px;
+}
+
+.scene-toolbar {
+    background: var(--plc-bg-medium);
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    border-bottom: 1px solid var(--plc-border);
+}
+
+.scene-tools-label {
+    font-size: 11px;
+    color: var(--plc-text-dim);
+    margin-right: 8px;
+}
+
+.scene-tool {
+    width: 44px;
+    height: 44px;
+    background: var(--plc-bg-dark);
+    border: 1px solid var(--plc-border);
+    border-radius: 6px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.scene-tool:hover {
+    border-color: var(--plc-accent);
+    background: rgba(0, 212, 170, 0.1);
+    transform: scale(1.05);
+}
+
+.scene-tool:active {
+    cursor: grabbing;
+}
+
+.scene-tool svg {
+    width: 36px;
+    height: 36px;
+}
+
+.scene-canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background: #1a1d23;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+}
+
+.scene-canvas {
+    width: 800px;
+    height: 500px;
+    min-width: 800px;
+    min-height: 500px;
+    display: block;
+    border: 1px solid var(--plc-border);
+    border-radius: 4px;
+}
+
+.scene-empty-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--plc-text-dim);
+    pointer-events: none;
+}
+
+.scene-empty-message p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+.scene-empty-message.hidden {
+    display: none;
+}
+
+/* Elementi animati nella scena */
+.scene-element {
+    cursor: pointer;
+    transition: filter 0.1s ease;
+}
+
+.scene-element:hover {
+    filter: brightness(1.2);
+}
+
+.scene-element.selected {
+    filter: drop-shadow(0 0 8px var(--plc-accent));
+}
+
+.scene-element.active {
+    filter: drop-shadow(0 0 6px #22c55e);
+}
+
+/* Animazioni specifiche */
+@keyframes conveyor-move {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(20px); }
+}
+
+@keyframes motor-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pump-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes valve-flow {
+    0% { stroke-dashoffset: 20; }
+    100% { stroke-dashoffset: 0; }
+}
+
+@keyframes sensor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes robot-move {
+    0%, 100% { transform: rotate(-20deg); }
+    50% { transform: rotate(20deg); }
+}
+
+@keyframes light-glow {
+    0%, 100% { filter: drop-shadow(0 0 3px currentColor); }
+    50% { filter: drop-shadow(0 0 10px currentColor); }
+}
+
+@keyframes box-move {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(100px); }
+}
+
+@keyframes liquid-wave {
+    0%, 100% { d: path("M0,5 Q5,0 10,5 T20,5"); }
+    50% { d: path("M0,5 Q5,10 10,5 T20,5"); }
+}
+
+/* Nastro trasportatore animato */
+.conveyor-belt.running .belt-surface {
+    animation: conveyor-move 0.3s linear infinite;
+}
+
+.conveyor-belt.running {
+    filter: brightness(1.2);
+}
+
+/* Motore rotante */
+.motor-rotor.running {
+    animation: motor-spin 0.5s linear infinite;
+    transform-origin: center;
+}
+
+/* Pompa pulsante */
+.pump-body.running {
+    animation: pump-pulse 0.5s ease-in-out infinite;
+}
+
+/* Valvola aperta */
+.valve-body.open {
+    fill: #27ae60;
+}
+
+.valve-body.closed {
+    fill: #c0392b;
+}
+
+/* Sensore attivo */
+.sensor-beam.active {
+    animation: sensor-blink 0.5s ease-in-out infinite;
+    fill: #f39c12;
+}
+
+/* Robot in movimento */
+.robot-arm.moving {
+    animation: robot-move 1s ease-in-out infinite;
+    transform-origin: bottom center;
+}
+
+/* Lampade */
+.light-bulb.on {
+    animation: light-glow 1s ease-in-out infinite;
+}
+
+.light-red.on { fill: #e74c3c; }
+.light-yellow.on { fill: #f1c40f; }
+.light-green.on { fill: #27ae60; }
+
+.light-red.off, .light-yellow.off, .light-green.off {
+    fill: #333;
+}
+
+/* Tank level */
+.tank-level {
+    transition: height 0.3s ease, y 0.3s ease;
+    fill: url(#tank-gradient);
+}
+
+/* Pipe flow */
+.pipe-flow.active {
+    fill: url(#flow-pattern);
+}
+
+/* Box/Product */
+.product-box.moving {
+    animation: box-move 2s linear;
+}
+
+
+/* ==================== Toast Notification ==================== */
+.plc-toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--plc-accent);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 4px 20px rgba(0, 212, 170, 0.4);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 3000;
+}
+
+.plc-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* No analog placeholder */
+.no-analog {
+    color: var(--plc-text-dim);
+    font-size: 12px;
+    font-style: italic;
+    padding: 8px 0;
+}
+
+
+/* ==================== Footer Credits ==================== */
+.plc-footer {
+    background: var(--plc-bg-dark);
+    border-top: 1px solid var(--plc-border);
+    padding: 10px 20px;
+    flex-shrink: 0;
+}
+
+.plc-footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--plc-text-dim);
+}
+
+.plc-footer a {
+    color: var(--plc-accent);
+    text-decoration: none;
+}
+
+.plc-footer a:hover {
+    text-decoration: underline;
+}
+
+.plc-footer-version {
+    color: var(--plc-text-dim);
+    font-size: 11px;
+}
+
+/* Nascondo footer in fullscreen */
+.plc-container.fullscreen .plc-footer {
+    display: none;
+}
+
+/* ==================== HMI RUN Mode Overlay ==================== */
+.hmi-run-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+}
+
+.hmi-run-overlay.active {
+    display: flex;
+}
+
+.hmi-run-header {
+    background: var(--plc-bg-light);
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--plc-accent);
+}
+
+.hmi-run-header h3 {
+    margin: 0;
+    color: var(--plc-accent);
+    font-size: 14px;
+}
+
+.hmi-run-close {
+    background: transparent;
+    border: 1px solid var(--plc-border);
+    color: var(--plc-text);
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.hmi-run-close:hover {
+    background: var(--plc-danger);
+    border-color: var(--plc-danger);
+}
+
+.hmi-run-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: auto;
+}
+
+/* ==================== Layout RUN con HMI ==================== */
+.plc-container.run-with-hmi .plc-main {
+    flex-direction: column;
+}
+
+.plc-container.run-with-hmi .plc-workspace {
+    flex: 0 0 auto;
+    max-height: 40vh;
+    overflow: auto;
+}
+
+.plc-container.run-with-hmi .hmi-inline-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a1d23;
+    border-top: 2px solid var(--plc-accent);
+    padding: 20px;
+    overflow: auto;
+}
+
+/* ==================== HMI Zoom Controls ==================== */
+.hmi-zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: 15px;
+}
+
+.hmi-zoom-control label {
+    font-size: 12px;
+    color: var(--plc-text-dim);
+}
+
+#hmi-zoom-value {
+    font-family: var(--plc-font-mono);
+    font-size: 12px;
+    color: var(--plc-accent);
+    min-width: 45px;
+    text-align: center;
+}
+
+.plc-btn-sm {
+    padding: 4px 8px !important;
+    font-size: 14px !important;
+    min-width: 28px;
+}
+
+/* Nascondo zoom control in RUN mode */
+.hmi-panel.run-mode .hmi-zoom-control {
+    display: flex !important; /* Zoom visibile anche in RUN */
+}
+
+/* ==================== Fkey Configuration ==================== */
+.hmi-fkey.configured {
+    background: linear-gradient(180deg, #2a6a4a 0%, #1a4a3a 100%) !important;
+    border-color: #00d4aa !important;
+    color: #00d4aa !important;
+}
+
+.hmi-fkeys-bottom .hmi-fkey.configured {
+    background: linear-gradient(180deg, #d0e8d8 0%, #a0c8b0 100%) !important;
+    border-color: #009977 !important;
+    color: #007755 !important;
+}
+
+.hmi-fkey.configured:hover {
+    box-shadow: 0 0 8px rgba(0, 212, 170, 0.5);
+}
+
+#fkey-config-label {
+    width: 80px;
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+#fkey-config-modal small {
+    color: var(--plc-text-dim);
+    font-size: 11px;
+    margin-left: 10px;
+}
+
+#fkey-config-title {
+    color: var(--plc-accent);
+}
+
+/* Scene hint */
+.scene-hint {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0, 212, 170, 0.1);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--plc-accent);
+}
+
+/* Scene element tooltip on hover */
+.scene-element-group {
+    cursor: pointer;
+}
+
+.scene-element-group:hover {
+    filter: brightness(1.2);
+}
+
+.scene-element-group.selected {
+    filter: drop-shadow(0 0 5px var(--plc-accent));
+}
+
+/* HMI hint */
+.hmi-hint {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0, 212, 170, 0.1);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--plc-accent);
+}
