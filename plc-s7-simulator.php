@@ -1,11 +1,13 @@
 <?php
 /**
- * Plugin Name: Unofficial S7/1200 Simulator by Prof D.Bertolino
- * Plugin URI: https://example.com/plc-simulator
- * Description: Unofficial S7/1200 Simulator - Simulatore PLC Siemens con editor Ladder e visualizzazione I/O
- * Version: 1.1.0
- * Author: Davide "the Prof" Bertolino
- * License: GPL v2 or later
+ * Plugin Name: Unofficial S7-1200 Simulator
+ * Plugin URI: https://www.davidebertolino.it/progetti/s7-simulator/
+ * Description: Simulatore PLC Siemens S7-1200 con editor Ladder, HMI touch e impianti virtuali animati
+ * Version: 1.6.9
+ * Author: Davide "the Prof." Bertolino
+ * Author URI: https://www.davidebertolino.it
+ * License: GPL v3 or later
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
  * Text Domain: plc-s7-simulator
  */
 
@@ -13,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('PLC_SIM_VERSION', '1.6.8');
+define('PLC_SIM_VERSION', '1.6.9');
 define('PLC_SIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PLC_SIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 

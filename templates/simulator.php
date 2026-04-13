@@ -886,7 +886,7 @@
             <svg id="scene-canvas" class="scene-canvas" viewBox="0 0 800 500">
                 <defs>
                     <pattern id="scene-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2d323c" stroke-width="0.5"/>
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#323844" stroke-width="0.5"/>
                     </pattern>
                     <!-- Animazione flusso tubi -->
                     <pattern id="flow-pattern" width="20" height="10" patternUnits="userSpaceOnUse">

@@ -2433,7 +2433,7 @@
             
             // Prepara oggetto completo per export
             const exportData = {
-                version: '1.6.8',
+                version: '1.6.9',
                 name: name,
                 savedAt: new Date().toISOString(),
                 program: PLC.program,

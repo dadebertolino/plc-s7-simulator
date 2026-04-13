@@ -55,10 +55,10 @@ body:has(#plc-simulator) .wp-block-post-content {
 }
 
 :root {
-    --plc-bg-dark: #1a1d23;
-    --plc-bg-medium: #252932;
-    --plc-bg-light: #2d323c;
-    --plc-border: #3d4451;
+    --plc-bg-dark: #1e2228;
+    --plc-bg-medium: #282d36;
+    --plc-bg-light: #323844;
+    --plc-border: #3e4553;
     --plc-text: #e4e7ec;
     --plc-text-dim: #9ca3af;
     --plc-accent: #00d4aa;
@@ -88,7 +88,7 @@ body:has(#plc-simulator) .wp-block-post-content {
 
 /* Header */
 .plc-header {
-    background: linear-gradient(180deg, #2d323c 0%, #252932 100%);
+    background: linear-gradient(180deg, #323844 0%, #282d36 100%);
     border-bottom: 1px solid var(--plc-border);
     padding: 12px 20px;
     display: flex;
@@ -1605,7 +1605,7 @@ body:has(#plc-simulator) .wp-block-post-content {
     font-weight: 500;
     position: relative;
     transition: all 0.15s ease;
-    color: #1a1d23;
+    color: #1e2228;
 }
 
 .context-menu-item:hover {
@@ -1662,7 +1662,7 @@ body:has(#plc-simulator) .wp-block-post-content {
     padding: 8px 16px;
     cursor: pointer;
     font-size: 12px;
-    color: #1a1d23;
+    color: #1e2228;
     transition: all 0.15s ease;
 }
 
@@ -1969,7 +1969,7 @@ body:has(#plc-simulator) .wp-block-post-content {
     justify-content: flex-start;
     padding: 20px;
     overflow: auto; /* scroll sia X che Y */
-    background: #1a1d23;
+    background: #1e2228;
     min-height: 300px;
 }
 
@@ -3665,7 +3665,7 @@ body:has(#plc-simulator) .wp-block-post-content {
     flex: 1;
     position: relative;
     overflow: auto;
-    background: #1a1d23;
+    background: #1e2228;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3975,7 +3975,7 @@ body:has(#plc-simulator) .wp-block-post-content {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #1a1d23;
+    background: #1e2228;
     border-top: 2px solid var(--plc-accent);
     padding: 20px;
     overflow: auto;
