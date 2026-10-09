@@ -285,3 +285,52 @@ describe('reset', () => {
         assert.equal(plc.counter(1).CV, 0);
     });
 });
+
+describe('timer: comportamento TIA dopo la scadenza', () => {
+    test('lo stesso timer chiamato due volte nello stesso ciclo non conta il tempo due volte', () => {
+        const plc = newPlc([
+            RUNG([NO('I0.0'), TON(0, 1000)], []),
+            RUNG([NO('I0.0'), TON(0, 1000)], [COIL('Q0.0')]),
+        ]);
+        plc.set('I0.0', 1); plc.scan(0);
+        plc.run(5, 100);
+        assert.equal(plc.timer(0).ET, 500);
+    });
+
+    test('TOF: dopo la scadenza ET resta a PT finche\' l\'ingresso non torna alto', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), TOF(0, 500)], [COIL('Q0.0')])]);
+        plc.set('I0.0', 1); plc.scan(0);
+        plc.set('I0.0', 0); plc.scan(0); plc.scan(500);
+        assert.equal(plc.get('Q0.0'), 0);
+        plc.scan(100);
+        assert.equal(plc.timer(0).ET, 500);
+        plc.set('I0.0', 1); plc.scan(0);
+        assert.equal(plc.timer(0).ET, 0);
+    });
+
+    test('TP: a impulso finito ET torna a 0 se l\'ingresso e\' basso', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), TP(0, 300)], [COIL('Q0.0')])]);
+        plc.set('I0.0', 1); plc.scan(0);
+        plc.set('I0.0', 0); plc.scan(0); plc.scan(300);
+        assert.equal(plc.get('Q0.0'), 0);
+        plc.scan(10);
+        assert.equal(plc.timer(0).ET, 0);
+    });
+
+    test('TP: a impulso finito ET resta a PT finche\' l\'ingresso e\' alto', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), TP(0, 300)], [COIL('Q0.0')])]);
+        plc.set('I0.0', 1); plc.scan(0); plc.scan(300); plc.scan(200);
+        assert.equal(plc.timer(0).ET, 300);
+        plc.set('I0.0', 0); plc.scan(10);
+        assert.equal(plc.timer(0).ET, 0);
+    });
+
+    test('TP: un nuovo fronte durante l\'impulso non lo riavvia', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), TP(0, 300)], [COIL('Q0.0')])]);
+        plc.set('I0.0', 1); plc.scan(0); plc.scan(100);
+        plc.set('I0.0', 0); plc.scan(50);
+        plc.set('I0.0', 1); plc.scan(50);
+        plc.scan(100);
+        assert.equal(plc.get('Q0.0'), 0, 'finisce a 300 ms dal primo fronte');
+    });
+});

@@ -275,9 +275,9 @@
                         t.running = false;
                     }
                 } else {
-                    // Mai stato ON o gia scaduto: output OFF
+                    // Mai stato ON o gia' scaduto: output OFF, ET resta a PT
+                    // (o a 0) finche' IN non torna alto, come in TIA Portal
                     t.Q = 0;
-                    t.ET = 0;
                 }
                 return t.Q;
             },
@@ -326,6 +326,11 @@
                         t.Q = 0;
                         t.running = false;
                     }
+                }
+
+                // Impulso finito: ET resta a PT finche' IN e' alto, poi torna a 0
+                if (!t.running && !IN) {
+                    t.ET = 0;
                 }
 
                 t.lastIN = IN;
