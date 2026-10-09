@@ -279,6 +279,42 @@
                 <span>.</span>
                 <input type="number" id="config-ctud-cd-bit" min="0" max="7" value="1" style="width:50px;">
             </div>
+            <div class="plc-form-group" id="pin-r-config" style="display:none;">
+                <label for="config-pin-r-type">Reset (R):</label>
+                <select id="config-pin-r-type">
+                    <option value="">non collegato</option>
+                    <option value="I">I</option>
+                    <option value="Q">Q</option>
+                    <option value="M">M</option>
+                </select>
+                <input type="number" id="config-pin-r-byte" min="0" max="127" value="0" style="width:50px;" aria-label="Reset (R): byte">
+                <span>.</span>
+                <input type="number" id="config-pin-r-bit" min="0" max="7" value="0" style="width:50px;" aria-label="Reset (R): bit">
+            </div>
+            <div class="plc-form-group" id="pin-ld-config" style="display:none;">
+                <label for="config-pin-ld-type">Carica PV (LD):</label>
+                <select id="config-pin-ld-type">
+                    <option value="">non collegato</option>
+                    <option value="I">I</option>
+                    <option value="Q">Q</option>
+                    <option value="M">M</option>
+                </select>
+                <input type="number" id="config-pin-ld-byte" min="0" max="127" value="0" style="width:50px;" aria-label="Carica PV (LD): byte">
+                <span>.</span>
+                <input type="number" id="config-pin-ld-bit" min="0" max="7" value="0" style="width:50px;" aria-label="Carica PV (LD): bit">
+            </div>
+            <div class="plc-form-group" id="pin-qd-config" style="display:none;">
+                <label for="config-pin-qd-type">Uscita QD:</label>
+                <select id="config-pin-qd-type">
+                    <option value="">non collegato</option>
+                    <option value="I">I</option>
+                    <option value="Q">Q</option>
+                    <option value="M">M</option>
+                </select>
+                <input type="number" id="config-pin-qd-byte" min="0" max="127" value="0" style="width:50px;" aria-label="Uscita QD: byte">
+                <span>.</span>
+                <input type="number" id="config-pin-qd-bit" min="0" max="7" value="0" style="width:50px;" aria-label="Uscita QD: bit">
+            </div>
             <div class="plc-form-group" id="compare-config" style="display:none;">
                 <label>Operando 1:</label>
                 <select id="config-cmp-op1-type">

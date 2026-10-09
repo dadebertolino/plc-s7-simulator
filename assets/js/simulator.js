@@ -1454,6 +1454,7 @@
             $('#timer-config').hide();
             $('#counter-config').hide();
             $('#ctud-config').hide();
+            $('#pin-r-config, #pin-ld-config, #pin-qd-config').hide();
             $('#compare-config').hide();
 
             // Popola form indirizzo (per elementi con indirizzo)
@@ -1494,9 +1495,28 @@
                     $('#config-ctud-cd-byte').val(cd.byte);
                     $('#config-ctud-cd-bit').val(cd.bit);
                 }
+                
+                // Ingressi R/LD e uscita QD collegabili a un operando
+                this.counterPins(elem.type).forEach(([key, prop]) => {
+                    const a = elem[prop];
+                    $(`#pin-${key}-config`).show();
+                    $(`#config-pin-${key}-type`).val(a && a.type ? a.type : '');
+                    $(`#config-pin-${key}-byte`).val(a ? a.byte || 0 : 0);
+                    $(`#config-pin-${key}-bit`).val(a ? a.bit || 0 : 0);
+                });
             }
 
             $('#config-modal').addClass('active');
+        },
+        
+        // Operandi opzionali dei contatori: [chiave nel form, proprieta' dell'elemento]
+        counterPins: function(type) {
+            const pins = {
+                'counter-ctu': [['r', 'resetAddr']],
+                'counter-ctd': [['ld', 'loadAddr']],
+                'counter-ctud': [['r', 'resetAddr'], ['ld', 'loadAddr'], ['qd', 'qdAddr']]
+            };
+            return pins[type] || [];
         },
 
         // Salva config elemento
@@ -1543,6 +1563,19 @@
                         bit: parseInt($('#config-ctud-cd-bit').val()) || 0
                     };
                 }
+                
+                this.counterPins(elem.type).forEach(([key, prop]) => {
+                    const type = $(`#config-pin-${key}-type`).val();
+                    if (type) {
+                        elem[prop] = {
+                            type: type,
+                            byte: parseInt($(`#config-pin-${key}-byte`).val()) || 0,
+                            bit: parseInt($(`#config-pin-${key}-bit`).val()) || 0
+                        };
+                    } else {
+                        delete elem[prop];
+                    }
+                });
             }
             
             // Comparatori: salva operandi
@@ -2692,7 +2725,7 @@
                     return `      CALL  "CTU"\n` +
                            `            DB${50 + ctuId}\n` +
                            `       CU  :=\n` +
-                           `       R   :=FALSE\n` +
+                           `       R   :=${this.pinToAWL(elem.resetAddr)}\n` +
                            `       PV  :=${ctuPV}\n` +
                            `       Q   :=\n` +
                            `       CV  :=\n`;
@@ -2703,7 +2736,7 @@
                     return `      CALL  "CTD"\n` +
                            `            DB${50 + ctdId}\n` +
                            `       CD  :=\n` +
-                           `       LD  :=FALSE\n` +
+                           `       LD  :=${this.pinToAWL(elem.loadAddr)}\n` +
                            `       PV  :=${ctdPV}\n` +
                            `       Q   :=\n` +
                            `       CV  :=\n`;
@@ -2714,12 +2747,12 @@
                     return `      CALL  "CTUD"\n` +
                            `            DB${50 + ctudId}\n` +
                            `       CU  :=\n` +
-                           `       CD  :=\n` +
-                           `       R   :=FALSE\n` +
-                           `       LD  :=FALSE\n` +
+                           `       CD  :=${this.pinToAWL(elem.cdAddr)}\n` +
+                           `       R   :=${this.pinToAWL(elem.resetAddr)}\n` +
+                           `       LD  :=${this.pinToAWL(elem.loadAddr)}\n` +
                            `       PV  :=${ctudPV}\n` +
                            `       QU  :=\n` +
-                           `       QD  :=\n` +
+                           `       QD  :=${elem.qdAddr ? this.pinToAWL(elem.qdAddr) : ''}\n` +
                            `       CV  :=\n`;
                     
                 case 'cmp-eq':
@@ -2939,18 +2972,28 @@
                 case 'counter-ctu':
                     const ctuId = elem.counterId || 0;
                     const ctuPV = elem.preset || 10;
-                    return `    "C${ctuId}"(CU := ${condition}, R := FALSE, PV := ${ctuPV});${comment}\n`;
+                    return `    "C${ctuId}"(CU := ${condition}, R := ${this.pinToSCL(elem.resetAddr)}, PV := ${ctuPV});${comment}\n`;
                 case 'counter-ctd':
                     const ctdId = elem.counterId || 0;
                     const ctdPV = elem.preset || 10;
-                    return `    "C${ctdId}"(CD := ${condition}, LD := FALSE, PV := ${ctdPV});${comment}\n`;
+                    return `    "C${ctdId}"(CD := ${condition}, LD := ${this.pinToSCL(elem.loadAddr)}, PV := ${ctdPV});${comment}\n`;
                 case 'counter-ctud':
                     const ctudId = elem.counterId || 0;
                     const ctudPV = elem.preset || 10;
-                    return `    "C${ctudId}"(CU := ${condition}, CD := FALSE, R := FALSE, LD := FALSE, PV := ${ctudPV});${comment}\n`;
+                    const qd = elem.qdAddr ? `, QD => ${this.pinToSCL(elem.qdAddr)}` : '';
+                    return `    "C${ctudId}"(CU := ${condition}, CD := ${this.pinToSCL(elem.cdAddr)}, R := ${this.pinToSCL(elem.resetAddr)}, LD := ${this.pinToSCL(elem.loadAddr)}, PV := ${ctudPV}${qd});${comment}\n`;
                 default:
                     return `    // Output non supportato: ${elem.type}\n`;
             }
+        },
+
+        // Operando opzionale di un box (R, LD, CD, QD) per gli export
+        pinToAWL: function(a) {
+            return a && a.type ? `${a.type}${a.byte || 0}.${a.bit || 0}` : 'FALSE';
+        },
+        
+        pinToSCL: function(a) {
+            return a && a.type ? `"${a.type}${a.byte || 0}.${a.bit || 0}"` : 'FALSE';
         },
 
         exportXML: function() {

@@ -411,3 +411,14 @@ describe('contatori: campo INT e casi limite come in TIA', () => {
         assert.equal(plc.counter(0).CV, 7);
     });
 });
+
+describe('CTUD: uscita QD su operando', () => {
+    test('QD viene scritta sull\'operando configurato', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTUD(0, 2, 'I0.1', { qdAddr: { type: 'M', byte: 5, bit: 0 } })], [COIL('Q0.0')])]);
+        plc.scan();
+        assert.equal(plc.get('M5.0'), 1, 'CV = 0 -> QD');
+        plc.set('I0.0', 1); plc.scan();
+        assert.equal(plc.get('M5.0'), 0);
+        assert.equal(plc.get('Q0.0'), 0, 'QU resta il flusso di potenza');
+    });
+});

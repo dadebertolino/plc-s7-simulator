@@ -603,6 +603,10 @@
                         const reset = elem.resetAddr ? PLC.readBit(elem.resetAddr.type, elem.resetAddr.byte, elem.resetAddr.bit) : 0;
                         const load = elem.loadAddr ? PLC.readBit(elem.loadAddr.type, elem.loadAddr.byte, elem.loadAddr.bit) : 0;
                         const result = PLC.counterCTUD(counterId, inputPower, cd, reset, load, preset);
+                        // QU e' il flusso di potenza; QD va sull'operando, se configurato
+                        if (elem.qdAddr && elem.qdAddr.type) {
+                            PLC.writeBit(elem.qdAddr.type, elem.qdAddr.byte || 0, elem.qdAddr.bit || 0, PLC.counters[counterId].QD);
+                        }
                         return result;
                     }
 
