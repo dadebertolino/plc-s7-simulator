@@ -242,13 +242,21 @@
             // Reset memoria
             reset: function() {
                 this.I.fill(0);
+                this.clearVolatile();
+            },
+
+            // Uscite, merker, timer, contatori e fronti a 0 (gli ingressi no)
+            clearVolatile: function() {
                 this.Q.fill(0);
                 this.M.fill(0);
                 this.edges = {};
                 Object.keys(this.timers).forEach(k => {
-                    this.timers[k].ET = 0;
-                    this.timers[k].Q = 0;
-                    this.timers[k].running = false;
+                    const t = this.timers[k];
+                    t.ET = 0;
+                    t.Q = 0;
+                    t.running = false;
+                    t.wasON = false;
+                    t.lastIN = 0;
                 });
                 Object.keys(this.counters).forEach(k => {
                     const c = this.counters[k];
@@ -257,6 +265,21 @@
                     this.counters[k].lastCU = 0;
                     this.counters[k].lastCD = 0;
                 });
+            },
+
+            // Passaggio STOP -> RUN come in S7-1200: immagine delle uscite,
+            // merker non ritentivi, timer, contatori e memorie dei fronti
+            // ripartono da 0; gli ingressi restano quelli del campo.
+            startup: function() {
+                this.clearVolatile();
+                this.running = true;
+            },
+
+            // Passaggio RUN -> STOP: le uscite vanno al valore sostitutivo 0,
+            // il resto della memoria resta consultabile
+            stop: function() {
+                this.running = false;
+                this.Q.fill(0);
             },
 
             // Timer TON

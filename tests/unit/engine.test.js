@@ -4,7 +4,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-    newPlc, NO, NC, COIL, SET, RESET, TON, TOF, TP, CTU, CTD, CTUD, CMP, BRANCH, RUNG,
+    newPlc, NO, NC, P, COIL, SET, RESET, TON, TOF, TP, CTU, CTD, CTUD, CMP, BRANCH, RUNG,
 } = require('./helpers');
 
 describe('contatti e bobine', () => {
@@ -409,5 +409,46 @@ describe('CTUD: uscita QD su operando', () => {
         plc.set('I0.0', 1); plc.scan();
         assert.equal(plc.get('M5.0'), 0);
         assert.equal(plc.get('Q0.0'), 0, 'QU resta il flusso di potenza');
+    });
+});
+
+describe('passaggi RUN/STOP come in S7-1200', () => {
+    test('STOP: le uscite vanno a 0, merker e ingressi restano', () => {
+        const plc = newPlc([RUNG([NO('I0.0')], [COIL('Q0.0'), SET('M0.0')])]);
+        plc.set('I0.0', 1); plc.scan();
+        plc.PLC.stop();
+        assert.equal(plc.PLC.running, false);
+        assert.equal(plc.get('Q0.0'), 0);
+        assert.equal(plc.get('M0.0'), 1);
+        assert.equal(plc.get('I0.0'), 1);
+    });
+
+    test('avvio: azzera uscite, merker, timer, contatori e fronti, non gli ingressi', () => {
+        const plc = newPlc([
+            RUNG([NO('I0.0'), TON(0, 100)], [SET('M0.0')]),
+            RUNG([NO('I0.1'), CTU(1, 5)], [SET('Q0.1')]),
+        ]);
+        plc.set('I0.0', 1); plc.set('I0.1', 1);
+        plc.scan(0); plc.scan(200);
+        plc.PLC.stop();
+        plc.PLC.writeWord('MW', 10, 1234);
+        plc.PLC.startup();
+        assert.equal(plc.PLC.running, true);
+        assert.equal(plc.get('I0.0'), 1, 'gli ingressi sono quelli del campo');
+        assert.equal(plc.get('M0.0'), 0);
+        assert.equal(plc.get('Q0.1'), 0);
+        assert.equal(plc.PLC.readWord('MW', 10), 0);
+        assert.equal(plc.timer(0).ET, 0);
+        assert.equal(plc.counter(1).CV, 0);
+    });
+
+    test('al primo ciclo dopo l\'avvio un contatto P vede il fronte dell\'ingresso gia\' alto', () => {
+        // Come in TIA: la memoria del fronte (non ritentiva) riparte da 0
+        const plc = newPlc([RUNG([NO('I0.1'), P('I0.0')], [CTU(0, 9)])]);
+        plc.set('I0.0', 1); plc.set('I0.1', 1); plc.scan();
+        plc.PLC.stop();
+        plc.PLC.startup();
+        plc.scan();
+        assert.equal(plc.counter(0).CV, 1);
     });
 });

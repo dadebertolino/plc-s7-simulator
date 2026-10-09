@@ -1644,7 +1644,9 @@
 
         // Avvia simulazione
         startSimulation: function() {
-            PLC.running = true;
+            // Gia' in RUN: un secondo intervallo resterebbe orfano
+            if (PLC.running || PLC.scanInterval) return;
+            PLC.startup();
             $('#btn-run').addClass('active');
             $('#status-led').addClass('running');
             $('#status-text').text('RUN');
@@ -1664,7 +1666,7 @@
 
         // Ferma simulazione
         stopSimulation: function() {
-            PLC.running = false;
+            PLC.stop();
             $('#btn-run').removeClass('active');
             $('#status-led').removeClass('running');
             $('#status-text').text('STOP');
@@ -1677,6 +1679,7 @@
                 clearInterval(PLC.scanInterval);
                 PLC.scanInterval = null;
             }
+            this.updateDisplay();
         },
 
         // Aggiorna display I/O
@@ -7243,6 +7246,8 @@
             UI.init();
             HMI.init();
             Scene.init();
+            // Stato del simulatore, per i test E2E e il debug dalla console
+            window.plcSim = { PLC, UI, HMI, Scene };
         }
     });
 
