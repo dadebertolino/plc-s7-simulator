@@ -1,0 +1,7 @@
+HANDOFF-*.md
+node_modules/
+vendor/
+test-results/
+playwright-report/
+tests/e2e/.auth/
+.DS_Store
