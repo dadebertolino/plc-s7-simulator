@@ -69,6 +69,7 @@
             <div class="plc-status">
                 <span class="plc-status-led" id="status-led"></span>
                 <span id="status-text">STOP</span>
+                <span id="status-cycle" class="plc-status-cycle" title="Tempo di ciclo: attuale (minimo / massimo)"></span>
             </div>
         </div>
     </header>
@@ -161,6 +162,23 @@
                     <div class="plc-tool" draggable="true" data-type="cmp-le">
                         <div class="tool-symbol">[&lt;=]</div>
                         <span>Minore/Uguale</span>
+                    </div>
+                </div>
+            </div>
+            <div class="plc-section">
+                <h3>Trasferimento e conversione</h3>
+                <div class="plc-tools">
+                    <div class="plc-tool" draggable="true" data-type="move">
+                        <div class="tool-symbol">[MOVE]</div>
+                        <span>Copia valore</span>
+                    </div>
+                    <div class="plc-tool" draggable="true" data-type="norm-x">
+                        <div class="tool-symbol">[NORM_X]</div>
+                        <span>Normalizza</span>
+                    </div>
+                    <div class="plc-tool" draggable="true" data-type="scale-x">
+                        <div class="tool-symbol">[SCALE_X]</div>
+                        <span>Scala</span>
                     </div>
                 </div>
             </div>
@@ -338,6 +356,7 @@
                 </select>
                 <input type="number" id="config-cmp-op2-value" value="0" style="width:80px;">
             </div>
+            <div class="plc-form-group" id="box-config" style="display:none;"></div>
             <div class="plc-form-group">
                 <label>Commento:</label>
                 <input type="text" id="config-comment" placeholder="Descrizione">

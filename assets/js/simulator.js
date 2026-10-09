@@ -378,7 +378,10 @@
                     { type: 'cmp-gt', label: 'Comparatore >' },
                     { type: 'cmp-lt', label: 'Comparatore <' },
                     { type: 'cmp-ge', label: 'Comparatore >=' },
-                    { type: 'cmp-le', label: 'Comparatore <=' }
+                    { type: 'cmp-le', label: 'Comparatore <=' },
+                    { type: 'move', label: 'MOVE' },
+                    { type: 'norm-x', label: 'NORM_X' },
+                    { type: 'scale-x', label: 'SCALE_X' }
                 ];
             } else {
                 types = [
@@ -408,7 +411,10 @@
                 { type: 'contact-n', label: 'Fronte discesa' },
                 { type: 'timer-ton', label: 'Timer TON' },
                 { type: 'counter-ctu', label: 'Counter CTU' },
-                { type: 'cmp-eq', label: 'Comparatore' }
+                { type: 'cmp-eq', label: 'Comparatore' },
+                { type: 'move', label: 'MOVE' },
+                { type: 'norm-x', label: 'NORM_X' },
+                { type: 'scale-x', label: 'SCALE_X' }
             ];
             
             const outputTypes = [
@@ -490,6 +496,9 @@
             if (newType.startsWith('coil') && !oldType.startsWith('coil')) {
                 elem.address = elem.address || {};
                 elem.address.type = 'Q';
+            }
+            if (this.boxPins(newType) && newType !== oldType) {
+                elem.pins = this.defaultPins(newType);
             }
             
             this.rerenderRung(rung);
@@ -604,6 +613,9 @@
             if (type.startsWith('cmp-')) {
                 element.operand1 = { type: 'const', value: 0 };
                 element.operand2 = { type: 'const', value: 0 };
+            }
+            if (this.boxPins(type)) {
+                element.pins = this.defaultPins(type);
             }
             
             return element;
@@ -1160,6 +1172,11 @@
                 element.operand2 = { type: 'const', value: 0 };
             }
 
+            // MOVE, NORM_X, SCALE_X
+            if (this.boxPins(type)) {
+                element.pins = this.defaultPins(type);
+            }
+
             const elements = targetSection === 'outputs' ? rung.outputs : rung.inputs;
             
             elements.splice(position, 0, element);
@@ -1288,6 +1305,17 @@
                     symbolHtml = `<div class="compare-box"><div class="box-type"><=</div></div>`;
                     displayAddr = this.formatOperands(elem);
                     break;
+                case 'move':
+                case 'norm-x':
+                case 'scale-x': {
+                    const pins = elem.pins || {};
+                    const rows = this.boxPins(elem.type)
+                        .map(([pin]) => `<div class="box-pin">${pin}: ${esc(this.formatOperand(pins[pin]))}</div>`)
+                        .join('');
+                    symbolHtml = `<div class="timer-box math-box"><div class="box-type">${this.boxName(elem.type)}</div>${rows}</div>`;
+                    displayAddr = '';
+                    break;
+                }
             }
 
             return `
@@ -1303,14 +1331,56 @@
         formatOperands: function(elem) {
             const op1 = elem.operand1 || { type: 'const', value: 0 };
             const op2 = elem.operand2 || { type: 'const', value: 0 };
-            const fmt = (op) => {
-                if (op.type === 'const') return op.value;
-                if (op.type === 'counter') return `C${op.value}.CV`;
-                if (op.type === 'timer') return `T${op.value}.ET`;
-                if (op.type === 'MW' || op.type === 'IW' || op.type === 'QW') return `${op.type}${op.value}`;
-                return op.value;
+            return `${this.formatOperand(op1)} ? ${this.formatOperand(op2)}`;
+        },
+
+        formatOperand: function(op) {
+            if (!op) return '?';
+            if (op.type === 'const') return op.value;
+            if (op.type === 'counter') return `C${op.value}.CV`;
+            if (op.type === 'timer') return `T${op.value}.ET`;
+            if (['MW', 'IW', 'QW', 'MD'].includes(op.type)) return `${op.type}${op.value}`;
+            return op.value;
+        },
+
+        // ==================== Box MOVE / NORM_X / SCALE_X ====================
+
+        // Pin dei box: [nome, operandi ammessi]. Le word (IW, QW, MW) sono INT,
+        // MD e' una doppia word REAL: NORM_X da' un REAL fra 0.0 e 1.0, che
+        // SCALE_X riceve come VALUE.
+        boxPins: function(type) {
+            const src = ['const', 'IW', 'QW', 'MW', 'MD', 'counter', 'timer'];
+            const pins = {
+                'move': [['IN', src], ['OUT', ['MW', 'QW', 'MD']]],
+                'norm-x': [['MIN', src], ['VALUE', src], ['MAX', src], ['OUT', ['MD']]],
+                'scale-x': [['MIN', src], ['VALUE', ['MD', 'const']], ['MAX', src], ['OUT', ['MW', 'QW', 'MD']]]
             };
-            return `${fmt(op1)} ? ${fmt(op2)}`;
+            return pins[type] || null;
+        },
+
+        boxName: function(type) {
+            return { 'move': 'MOVE', 'norm-x': 'NORM_X', 'scale-x': 'SCALE_X' }[type] || type;
+        },
+
+        // Valori iniziali: la catena tipica ingresso analogico -> 0..100
+        defaultPins: function(type) {
+            const defaults = {
+                'move': { IN: { type: 'IW', value: 64 }, OUT: { type: 'MW', value: 10 } },
+                'norm-x': {
+                    MIN: { type: 'const', value: 0 }, VALUE: { type: 'IW', value: 64 },
+                    MAX: { type: 'const', value: 27648 }, OUT: { type: 'MD', value: 20 }
+                },
+                'scale-x': {
+                    MIN: { type: 'const', value: 0 }, VALUE: { type: 'MD', value: 20 },
+                    MAX: { type: 'const', value: 100 }, OUT: { type: 'MW', value: 30 }
+                }
+            };
+            return JSON.parse(JSON.stringify(defaults[type] || {}));
+        },
+
+        operandLabels: {
+            const: 'Costante', IW: 'Input Word (IW)', QW: 'Output Word (QW)', MW: 'Memory Word (MW)',
+            MD: 'REAL (MD)', counter: 'Counter CV', timer: 'Timer ET'
         },
 
         // Setup eventi elementi
@@ -1434,9 +1504,26 @@
             $('#ctud-config').hide();
             $('#pin-r-config, #pin-ld-config, #pin-qd-config').hide();
             $('#compare-config').hide();
+            $('#box-config').hide().empty();
 
             // Popola form indirizzo (per elementi con indirizzo)
-            if (!elem.type.startsWith('cmp-')) {
+            if (this.boxPins(elem.type)) {
+                // Box: un operando per pin al posto dell'indirizzo
+                $('#address-config').hide();
+                const $box = $('#box-config');
+                const pins = elem.pins || {};
+                this.boxPins(elem.type).forEach(([pin, allowed]) => {
+                    const op = pins[pin] || { type: allowed[0], value: 0 };
+                    const options = allowed.map(t =>
+                        `<option value="${t}"${t === op.type ? ' selected' : ''}>${this.operandLabels[t]}</option>`).join('');
+                    $box.append(`<div class="box-pin-row">
+                        <label for="config-box-${pin}-type">${pin}:</label>
+                        <select id="config-box-${pin}-type">${options}</select>
+                        <input type="number" step="any" id="config-box-${pin}-value" value="${esc(op.value)}" aria-label="${pin}: valore o indirizzo">
+                    </div>`);
+                });
+                $box.show();
+            } else if (!elem.type.startsWith('cmp-')) {
                 $('#config-address-type').val(elem.address?.type || 'I');
                 $('#config-address-byte').val(elem.address?.byte || 0);
                 $('#config-address-bit').val(elem.address?.bit || 0);
@@ -1513,8 +1600,16 @@
             
             const elem = found.element;
 
-            // Salva indirizzo (solo se non e comparatore)
-            if (!elem.type.startsWith('cmp-')) {
+            // Salva indirizzo (solo se non e comparatore o box)
+            if (this.boxPins(elem.type)) {
+                elem.pins = {};
+                this.boxPins(elem.type).forEach(([pin]) => {
+                    const type = $(`#config-box-${pin}-type`).val();
+                    const raw = Number($(`#config-box-${pin}-value`).val()) || 0;
+                    // Gli indirizzi sono interi, le costanti possono essere REAL
+                    elem.pins[pin] = { type: type, value: type === 'const' ? raw : Math.max(0, Math.trunc(raw)) };
+                });
+            } else if (!elem.type.startsWith('cmp-')) {
                 elem.address = {
                     type: $('#config-address-type').val(),
                     byte: parseInt($('#config-address-byte').val()) || 0,
@@ -1684,6 +1779,11 @@
 
         // Aggiorna display I/O
         updateDisplay: function() {
+            // Tempo di ciclo come nella diagnostica della CPU: attuale (min / max)
+            const c = PLC.cycle;
+            $('#status-cycle').text(PLC.running && c.last
+                ? `${Math.round(c.last)} ms (${Math.round(c.min)} / ${Math.round(c.max)})` : '');
+
             // Ingressi
             $('.input-bit').each(function() {
                 const byte = $(this).data('byte');
@@ -2265,6 +2365,9 @@
                 element.operand1 = { type: 'const', value: 0 };
                 element.operand2 = { type: 'const', value: 0 };
             }
+            if (this.boxPins(type)) {
+                element.pins = this.defaultPins(type);
+            }
 
             branch.lines[lineIdx].splice(position, 0, element);
             this.rerenderRung(rung);
@@ -2417,6 +2520,8 @@
             } else if (type.startsWith('counter')) {
                 element.counterId = this.counterCounter++;
                 element.preset = 10;
+            } else if (this.boxPins(type)) {
+                element.pins = this.defaultPins(type);
             }
 
             branch.lines[lineIdx].splice(position, 0, element);
@@ -2746,6 +2851,15 @@
                 case 'cmp-ge':
                 case 'cmp-le':
                     return this.compareToAWL(elem);
+
+                case 'move':
+                case 'norm-x':
+                case 'scale-x': {
+                    const pins = elem.pins || {};
+                    return `      CALL  ${this.boxName(elem.type)}${comment}\n` +
+                        this.boxPins(elem.type).map(([pin]) =>
+                            `       ${(pin === 'OUT' && elem.type === 'move' ? 'OUT1' : pin).padEnd(5)}:=${this.operandToAWL(pins[pin])}\n`).join('');
+                }
                     
                 default:
                     return `      // Elemento non supportato: ${elem.type}\n`;
@@ -2777,7 +2891,8 @@
                 case 'timer': return `DB${10 + (op.value || 0)}.ET`;
                 case 'MW':
                 case 'IW':
-                case 'QW': return `${op.type}${op.value || 0}`;
+                case 'QW':
+                case 'MD': return `${op.type}${op.value || 0}`;
                 default: return op.value || 0;
             }
         },
@@ -2867,6 +2982,9 @@
                 } else if (elem.type.startsWith('timer-') || elem.type.startsWith('counter-')) {
                     pre.push(this.outputToSCL(elem, sofar()));
                     terms = [this.inputElementToSCL(elem)];
+                } else if (this.boxPins(elem.type)) {
+                    // MOVE / NORM_X / SCALE_X eseguiti con EN; ENO = EN
+                    pre.push(`    IF ${sofar()} THEN\n        ${this.boxToSCL(elem)}\n    END_IF;\n`);
                 } else if (elem.type === 'contact-p' || elem.type === 'contact-n') {
                     // Come -|P|- / -|N|- di TIA: fronte dell'operando, in AND con la condizione
                     const addr = elem.address || {};
@@ -2879,6 +2997,14 @@
             });
             
             return sofar();
+        },
+
+        boxToSCL: function(elem) {
+            const p = elem.pins || {};
+            const op = (pin) => this.operandToSCL(p[pin]);
+            const comment = elem.comment ? ` // ${elem.comment}` : '';
+            if (elem.type === 'move') return `${op('OUT')} := ${op('IN')};${comment}`;
+            return `${op('OUT')} := ${this.boxName(elem.type)}(MIN := ${op('MIN')}, VALUE := ${op('VALUE')}, MAX := ${op('MAX')});${comment}`;
         },
 
         inputsToSCL: function(elements) {
@@ -2961,7 +3087,8 @@
                 case 'timer': return `"T${op.value || 0}".ET`;
                 case 'MW':
                 case 'IW':
-                case 'QW': return `"${op.type}${op.value || 0}"`;
+                case 'QW':
+                case 'MD': return `"${op.type}${op.value || 0}"`;
                 default: return op.value || 0;
             }
         },
@@ -3100,6 +3227,18 @@
                 'timer-tof': 'TOF',
                 'counter-ctu': 'CTU'
             };
+            if (this.boxPins(elem.type)) {
+                const pins = elem.pins || {};
+                let box = `              <Part Name="${this.boxName(elem.type)}" ID="${idx}">\n`;
+                this.boxPins(elem.type).forEach(([pin]) => {
+                    const op = pins[pin] || {};
+                    box += `                <Pin Name="${pin}" Type="${this.escapeXml(op.type || 'const')}">${this.escapeXml(op.value || 0)}</Pin>\n`;
+                });
+                if (elem.comment) {
+                    box += `                <Comment>${this.escapeXml(elem.comment)}</Comment>\n`;
+                }
+                return box + `              </Part>\n`;
+            }
             const xmlType = typeMap[elem.type] || 'Contact';
             
             let xml = `              <Part Name="${xmlType}" ID="${idx}">\n`;
@@ -3720,6 +3859,28 @@
             
             let type = 'contact-no';
             const nameLower = name.toLowerCase();
+
+            // Box esportati dal simulatore: un <Pin Name Type> per operando
+            const boxType = { 'move': 'move', 'norm_x': 'norm-x', 'scale_x': 'scale-x' }[nameLower];
+            if (boxType) {
+                const pins = {};
+                this.boxPins(boxType).forEach(([pin, allowed]) => {
+                    const el = Array.from(part.querySelectorAll('Pin')).find(p => p.getAttribute('Name') === pin);
+                    const t = el && el.getAttribute('Type');
+                    const v = el ? Number(el.textContent) : 0;
+                    pins[pin] = {
+                        type: allowed.includes(t) ? t : allowed[0],
+                        value: Number.isFinite(v) ? v : 0
+                    };
+                });
+                return {
+                    id: Date.now() + idx,
+                    type: boxType,
+                    pins: pins,
+                    comment: comment ? comment.textContent : '',
+                    state: 0
+                };
+            }
             
             if (nameLower.includes('coil') || nameLower === 'coil') {
                 type = 'coil';
@@ -4056,6 +4217,15 @@
                     symbol = `--<span class="counter">[CTU C${elem.counterId}]</span>--`;
                     address = `   <span class="address">PV:${elem.preset}</span>   `;
                     break;
+                case 'move':
+                case 'norm-x':
+                case 'scale-x': {
+                    const pins = elem.pins || {};
+                    const ops = this.boxPins(elem.type).map(([pin]) => `${pin}=${this.formatOperand(pins[pin])}`).join(' ');
+                    symbol = `--<span class="timer">[${this.boxName(elem.type)}]</span>--`;
+                    address = `  <span class="address">${esc(ops)}</span>  `;
+                    break;
+                }
                 case 'branch':
                     // Per branch, mostra solo la prima linea qui
                     if (elem.lines && elem.lines[0]) {

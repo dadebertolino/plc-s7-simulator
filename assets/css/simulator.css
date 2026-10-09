@@ -774,6 +774,41 @@ body:has(#plc-simulator) .wp-block-post-content {
     color: var(--plc-blue);
 }
 
+/* MOVE / NORM_X / SCALE_X */
+.math-box {
+    min-width: 90px;
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.math-box .box-pin {
+    font-family: monospace;
+    text-align: left;
+    white-space: nowrap;
+}
+
+#box-config .box-pin-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+#box-config .box-pin-row label {
+    min-width: 52px;
+    margin: 0;
+}
+
+#box-config .box-pin-row input {
+    width: 90px;
+}
+
+.plc-status-cycle {
+    font-family: monospace;
+    font-size: 11px;
+    opacity: 0.8;
+    margin-left: 6px;
+}
+
 /* CTUD box */
 .ctud-box {
     min-width: 80px;
@@ -806,6 +841,7 @@ body:has(#plc-simulator) .wp-block-post-content {
 }
 
 .ladder-element.active .timer-box,
+.ladder-element.active .math-box,
 .ladder-element.active .counter-box,
 .ladder-element.active .compare-box {
     border-color: var(--plc-accent);

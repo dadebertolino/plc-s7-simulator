@@ -27,6 +27,11 @@ const CTD = (id, preset, extra = {}) => ({ type: 'counter-ctd', counterId: id, p
 const CTUD = (id, preset, cd, extra = {}) => ({ type: 'counter-ctud', counterId: id, preset, cdAddr: addr(cd), ...extra });
 const CMP = (op, operand1, operand2) => ({ type: 'cmp-' + op, operand1, operand2 });
 const BRANCH = (...lines) => ({ type: 'branch', lines });
+// Operandi dei box: OP('IW', 64), OP('const', 27648)
+const OP = (type, value) => ({ type, value });
+const MOVE = (IN, OUT) => ({ type: 'move', pins: { IN, OUT } });
+const NORM_X = (MIN, VALUE, MAX, OUT) => ({ type: 'norm-x', pins: { MIN, VALUE, MAX, OUT } });
+const SCALE_X = (MIN, VALUE, MAX, OUT) => ({ type: 'scale-x', pins: { MIN, VALUE, MAX, OUT } });
 
 let nextRungId = 1;
 const RUNG = (inputs, outputs) => ({ id: nextRungId++, inputs, outputs });
@@ -74,4 +79,5 @@ function newPlc(rungs = []) {
 module.exports = {
     PLCSimCore, addr, newPlc,
     NO, NC, P, N, COIL, SET, RESET, TON, TOF, TP, CTU, CTD, CTUD, CMP, BRANCH, RUNG,
+    OP, MOVE, NORM_X, SCALE_X,
 };

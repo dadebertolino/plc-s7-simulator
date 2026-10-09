@@ -29,8 +29,10 @@ Il simulatore riproduce fedelmente il comportamento di un PLC reale: le uscite n
 - Contatti P e N con fronte sull'operando, una memoria per ogni istruzione
 - Timer TON, TOF, TP con preset configurabile
 - Counter CTU, CTD, CTUD con campo INT, ingressi R e LD e uscita QD configurabili
-- Comparatori ==, <>, >, <, >=, <= anche su IW e QW
+- Comparatori ==, <>, >, <, >=, <= anche su IW, QW e MD
+- MOVE, NORM_X e SCALE_X per copiare e scalare i valori analogici, come in TIA Portal
 - Branch paralleli e annidati
+- Tempo di ciclo nella barra di stato: attuale, minimo e massimo
 - Regole ladder realistiche (uscite solo in parallelo)
 
 ### HMI Touch
@@ -113,7 +115,8 @@ Inserisce il simulatore completo nella pagina. Consigliato usare un template a l
 | `M` | Merker | M0.0 - M255.7 |
 | `IW` | Ingresso analogico | IW64 - IW78 |
 | `QW` | Uscita analogica | QW64 - QW78 |
-| `MW` | Memory word | MW0 - MW255 |
+| `MW` | Memory word (INT) | MW0 - MW8190 |
+| `MD` | Memory double word (REAL) | MD0 - MD8188 |
 
 ---
 
