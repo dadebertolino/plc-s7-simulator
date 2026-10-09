@@ -89,48 +89,91 @@
 
             // ==================== Hardware Functions ====================
 
-            // Calcola I/O totali in base a configurazione
-            getAnalogConfig: function() {
-                const cpu = this.hardware.cpuModels[this.hardware.currentCPU];
-                let totalAI = cpu.ai;
-                let totalAQ = cpu.aq;
-                let aiAddresses = [];
-                let aqAddresses = [];
+            // Moduli SM ammessi per CPU (la signal board e' sempre al massimo una)
+            maxModules: { '1211C': 0, '1212C': 2, '1214C': 8, '1215C': 8, '1217C': 8 },
 
-                // AI integrati CPU (IW64, IW66 tipicamente)
-                for (let i = 0; i < cpu.ai; i++) {
-                    aiAddresses.push(cpu.aiStart + (i * 2));
-                }
-
-                // AQ integrati CPU (se presenti)
-                if (cpu.aq > 0) {
-                    for (let i = 0; i < cpu.aq; i++) {
-                        aqAddresses.push(cpu.aqStart + (i * 2));
+            // Indirizzi di default degli I/O come in TIA Portal:
+            // CPU da I0.0/Q0.0 e IW64/QW64, signal board da I4.0/Q4.0 e IW80/QW80,
+            // modulo SM nello slot n (2..9) da I(8+4(n-2)).0/Q... e IW(96+16(n-2))/QW...
+            // di/dq: canali { byte, bit, module }; ai/aq: indirizzi delle word.
+            // cpuId ed expansions (facoltativi) servono all'anteprima della
+            // finestra hardware, prima di applicare la configurazione.
+            getIOConfig: function(cpuId, expansions) {
+                const hw = this.hardware;
+                cpuId = cpuId || hw.currentCPU;
+                expansions = expansions || hw.installedExpansions;
+                const cpu = hw.cpuModels[cpuId] || hw.cpuModels['1215C-AC'];
+                const cfg = { di: [], dq: [], ai: [], aq: [], errors: [] };
+                const bits = (list, startByte, count, module) => {
+                    for (let i = 0; i < count; i++) {
+                        list.push({ byte: startByte + Math.floor(i / 8), bit: i % 8, module: module });
                     }
-                }
+                };
+                const words = (list, start, count) => {
+                    for (let i = 0; i < count; i++) list.push(start + i * 2);
+                };
 
-                // Espansioni (partono da IW96/QW96)
-                let expAIStart = 96;
-                let expAQStart = 96;
+                bits(cfg.di, 0, cpu.di, 'CPU');
+                bits(cfg.dq, 0, cpu.dq, 'CPU');
+                words(cfg.ai, cpu.aiStart || 64, cpu.ai);
+                words(cfg.aq, cpu.aqStart || 64, cpu.aq);
 
-                this.hardware.installedExpansions.forEach(expId => {
-                    const exp = this.hardware.expansions[expId];
-                    if (exp) {
-                        for (let i = 0; i < exp.ai; i++) {
-                            aiAddresses.push(expAIStart + (i * 2));
+                let boards = 0;
+                let slot = 2;
+                expansions.forEach(expId => {
+                    const exp = hw.expansions[expId];
+                    if (!exp) return;
+                    if (expId.startsWith('SB')) {
+                        if (++boards > 1) {
+                            cfg.errors.push('Si puo\' installare una sola signal board (' + exp.name + ' in piu\').');
+                            return;
                         }
-                        expAIStart += exp.ai * 2;
-                        totalAI += exp.ai;
-
-                        for (let i = 0; i < exp.aq; i++) {
-                            aqAddresses.push(expAQStart + (i * 2));
+                        bits(cfg.di, 4, exp.di, exp.name);
+                        bits(cfg.dq, 4, exp.dq, exp.name);
+                        words(cfg.ai, 80, exp.ai);
+                        words(cfg.aq, 80, exp.aq);
+                    } else {
+                        if (slot - 2 >= this.maxModulesFor(cpuId)) {
+                            cfg.errors.push(this.tooManyModules(cpuId) + ' (' + exp.name + ' in piu\').');
+                            return;
                         }
-                        expAQStart += exp.aq * 2;
-                        totalAQ += exp.aq;
+                        bits(cfg.di, 8 + 4 * (slot - 2), exp.di, exp.name);
+                        bits(cfg.dq, 8 + 4 * (slot - 2), exp.dq, exp.name);
+                        words(cfg.ai, 96 + 16 * (slot - 2), exp.ai);
+                        words(cfg.aq, 96 + 16 * (slot - 2), exp.aq);
+                        slot++;
                     }
                 });
+                return cfg;
+            },
 
-                return { totalAI, totalAQ, aiAddresses, aqAddresses };
+            maxModulesFor: function(cpuId) {
+                return this.maxModules[String(cpuId).slice(0, 5)] || 0;
+            },
+
+            tooManyModules: function(cpuId) {
+                const max = this.maxModulesFor(cpuId);
+                const name = 'CPU ' + String(cpuId).slice(0, 5);
+                return max === 0 ? name + ' non accetta moduli di espansione' : name + ': al massimo ' + max + ' moduli di espansione';
+            },
+
+            // '' se l'espansione si puo' aggiungere, altrimenti il motivo
+            canAddExpansion: function(expId, cpuId, expansions) {
+                const hw = this.hardware;
+                cpuId = cpuId || hw.currentCPU;
+                if (!hw.expansions[expId]) return 'Espansione sconosciuta';
+                const installed = (expansions || hw.installedExpansions).filter(id => hw.expansions[id]);
+                if (expId.startsWith('SB')) {
+                    return installed.some(id => id.startsWith('SB')) ? 'Si puo\' installare una sola signal board.' : '';
+                }
+                const modules = installed.filter(id => !id.startsWith('SB')).length;
+                return modules >= this.maxModulesFor(cpuId) ? this.tooManyModules(cpuId) + '.' : '';
+            },
+
+            // Indirizzi analogici (per la griglia AI/AQ)
+            getAnalogConfig: function() {
+                const cfg = this.getIOConfig();
+                return { totalAI: cfg.ai.length, totalAQ: cfg.aq.length, aiAddresses: cfg.ai, aqAddresses: cfg.aq };
             },
 
             // Area di un bit ('I', 'Q', 'M') o di una word ('IW', 'QW', 'MW')

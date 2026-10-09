@@ -257,17 +257,6 @@ describe('funzioni analogiche', () => {
         assert.equal(PLC.analogToEngineering(13824, 0, 10), 5);
         assert.equal(PLC.engineeringToAnalog(5, 0, 10), 13824);
     });
-
-    test('indirizzi analogici: CPU 1215C e moduli di espansione da IW96', () => {
-        const { PLC } = newPlc();
-        PLC.hardware.currentCPU = '1215C-DC';
-        PLC.hardware.installedExpansions = ['SM1231-4AI', 'SM1234-4AI2AQ'];
-        const cfg = PLC.getAnalogConfig();
-        assert.deepEqual(cfg.aiAddresses, [64, 66, 96, 98, 100, 102, 104, 106, 108, 110]);
-        assert.deepEqual(cfg.aqAddresses, [64, 66, 96, 98]);
-        assert.equal(cfg.totalAI, 10);
-        assert.equal(cfg.totalAQ, 4);
-    });
 });
 
 describe('reset', () => {

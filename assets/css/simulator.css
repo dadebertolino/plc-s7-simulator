@@ -1370,6 +1370,19 @@ body:has(#plc-simulator) .wp-block-post-content {
     color: var(--plc-accent);
 }
 
+.hw-errors:empty {
+    display: none;
+}
+
+.hw-errors {
+    margin-top: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--plc-danger);
+    border-radius: 6px;
+    color: var(--plc-danger);
+    font-size: 12px;
+}
+
 .address-map {
     margin-top: 12px;
     font-family: var(--plc-font-mono);

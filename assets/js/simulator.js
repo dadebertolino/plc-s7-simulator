@@ -652,47 +652,29 @@
 
         // Crea griglia I/O
         createIOGrid: function() {
-            // Ingressi
-            const inputsGrid = $('#inputs-grid');
-            for (let byte = 0; byte < 2; byte++) {
-                for (let bit = 0; bit < 8; bit++) {
-                    inputsGrid.append(`
-                        <div class="io-bit input-bit" data-type="I" data-byte="${byte}" data-bit="${bit}">
-                            <span class="io-bit-label">I${byte}.${bit}</span>
+            const cfg = PLC.getIOConfig();
+            const bitHtml = (cls, type, c) => `
+                        <div class="io-bit ${cls}" data-type="${type}" data-byte="${c.byte}" data-bit="${c.bit}" title="${c.module}">
+                            <span class="io-bit-label">${type}${c.byte}.${c.bit}</span>
                             <span class="io-bit-state">0</span>
                         </div>
-                    `);
-                }
-            }
+                    `;
 
-            // Uscite
-            const outputsGrid = $('#outputs-grid');
-            for (let byte = 0; byte < 2; byte++) {
-                for (let bit = 0; bit < 8; bit++) {
-                    outputsGrid.append(`
-                        <div class="io-bit output-bit" data-type="Q" data-byte="${byte}" data-bit="${bit}">
-                            <span class="io-bit-label">Q${byte}.${bit}</span>
-                            <span class="io-bit-state">0</span>
-                        </div>
-                    `);
-                }
-            }
+            // Ingressi e uscite secondo CPU ed espansioni installate
+            $('#inputs-grid').html(cfg.di.map(c => bitHtml('input-bit', 'I', c)).join(''));
+            $('#outputs-grid').html(cfg.dq.map(c => bitHtml('output-bit', 'Q', c)).join(''));
 
             // Merker
-            const merkersGrid = $('#merkers-grid');
+            const merkers = [];
             for (let byte = 0; byte < 2; byte++) {
                 for (let bit = 0; bit < 8; bit++) {
-                    merkersGrid.append(`
-                        <div class="io-bit merker-bit" data-type="M" data-byte="${byte}" data-bit="${bit}">
-                            <span class="io-bit-label">M${byte}.${bit}</span>
-                            <span class="io-bit-state">0</span>
-                        </div>
-                    `);
+                    merkers.push(bitHtml('merker-bit', 'M', { byte, bit, module: 'Merker' }));
                 }
             }
+            $('#merkers-grid').html(merkers.join(''));
 
             // Click su ingressi per toggle
-            $('.input-bit').on('click', function() {
+            $('#inputs-grid').off('click').on('click', '.input-bit', function() {
                 const byte = $(this).data('byte');
                 const bit = $(this).data('bit');
                 PLC.toggleBit('I', byte, bit);
@@ -701,6 +683,7 @@
             
             // Crea anche I/O analogici
             this.createAnalogIOGrid();
+            this.updateDisplay();
         },
 
         // ==================== Analog I/O Grid ====================
@@ -807,14 +790,24 @@
                 this.updateHardwarePreview();
             });
             
-            // Aggiungi espansione
+            // Aggiungi espansione (alla bozza: diventa effettiva con Applica)
             $('#hw-add-expansion').on('click', () => {
                 const expId = $('#hw-expansion-select').val();
-                if (expId && !PLC.hardware.installedExpansions.includes(expId)) {
-                    PLC.hardware.installedExpansions.push(expId);
-                    this.updateHardwarePreview();
-                    $('#hw-expansion-select').val('');
+                if (!expId) return;
+                const reason = PLC.canAddExpansion(expId, $('#hw-cpu-select').val(), this.hwDraft);
+                if (reason) {
+                    this.showToast(reason);
+                    return;
                 }
+                this.hwDraft.push(expId);
+                this.updateHardwarePreview();
+                $('#hw-expansion-select').val('');
+            });
+            
+            // Rimuovi espansione
+            $('#hw-expansions-list').on('click', '.expansion-remove', function() {
+                UI.hwDraft.splice(parseInt($(this).data('idx')), 1);
+                UI.updateHardwarePreview();
             });
             
             // Applica configurazione
@@ -823,8 +816,12 @@
             });
         },
         
+        // Espansioni in modifica nella finestra hardware
+        hwDraft: [],
+        
         openHardwareModal: function() {
             // Sincronizza UI con configurazione corrente
+            this.hwDraft = PLC.hardware.installedExpansions.slice();
             $('#hw-cpu-select').val(PLC.hardware.currentCPU);
             this.updateHardwarePreview();
             $('#hardware-modal').addClass('active');
@@ -833,6 +830,7 @@
         updateHardwarePreview: function() {
             const cpuId = $('#hw-cpu-select').val();
             const cpu = PLC.hardware.cpuModels[cpuId];
+            const esc = (t) => $('<div>').text(t).html();
             
             // Info CPU
             $('#hw-cpu-info').html(`
@@ -846,10 +844,10 @@
             const expList = $('#hw-expansions-list');
             expList.empty();
             
-            if (PLC.hardware.installedExpansions.length === 0) {
+            if (this.hwDraft.length === 0) {
                 expList.html('<div class="no-expansions" style="color: var(--plc-text-dim); font-size: 12px; padding: 8px 0;">Nessuna espansione installata</div>');
             } else {
-                PLC.hardware.installedExpansions.forEach((expId, idx) => {
+                this.hwDraft.forEach((expId, idx) => {
                     const exp = PLC.hardware.expansions[expId];
                     if (exp) {
                         let specs = [];
@@ -861,91 +859,67 @@
                         expList.append(`
                             <div class="expansion-item" data-idx="${idx}">
                                 <div class="expansion-item-info">
-                                    <div class="expansion-item-icon">${expId.includes('SB') ? 'SB' : 'SM'}</div>
+                                    <div class="expansion-item-icon">${expId.startsWith('SB') ? 'SB' : 'SM'}</div>
                                     <div>
                                         <div class="expansion-item-name">${exp.name}</div>
                                         <div class="expansion-item-specs">${specs.join(' / ')}</div>
                                     </div>
                                 </div>
-                                <button class="expansion-remove" data-idx="${idx}" title="Rimuovi">×</button>
+                                <button class="expansion-remove" data-idx="${idx}" title="Rimuovi" aria-label="Rimuovi ${exp.name}">×</button>
                             </div>
                         `);
                     }
                 });
-                
-                // Eventi rimozione
-                expList.find('.expansion-remove').on('click', function() {
-                    const idx = parseInt($(this).data('idx'));
-                    PLC.hardware.installedExpansions.splice(idx, 1);
-                    UI.updateHardwarePreview();
+            }
+            
+            // Indirizzi come in TIA Portal (anteprima, non ancora applicata)
+            const cfg = PLC.getIOConfig(cpuId, this.hwDraft);
+            $('#hw-total-di').text(cfg.di.length);
+            $('#hw-total-dq').text(cfg.dq.length);
+            $('#hw-total-ai').text(cfg.ai.length);
+            $('#hw-total-aq').text(cfg.aq.length);
+            
+            // Errori: la configurazione non si puo' applicare
+            $('#hw-errors').html(cfg.errors.map(e => `<div>${esc(e)}</div>`).join(''));
+            $('#hw-apply').prop('disabled', cfg.errors.length > 0);
+            
+            // Mappa indirizzi: un intervallo per modulo
+            const ranges = (channels, type) => {
+                const groups = [];
+                channels.forEach(c => {
+                    const last = groups[groups.length - 1];
+                    if (last && last.module === c.module) {
+                        last.to = c;
+                    } else {
+                        groups.push({ module: c.module, from: c, to: c });
+                    }
                 });
-            }
-            
-            // Calcola totali (preview, non ancora applicata)
-            let totalDI = cpu.di;
-            let totalDQ = cpu.dq;
-            let totalAI = cpu.ai;
-            let totalAQ = cpu.aq;
-            let aiAddrs = [];
-            let aqAddrs = [];
-            
-            // AI CPU
-            for (let i = 0; i < cpu.ai; i++) {
-                aiAddrs.push(`IW${cpu.aiStart + (i * 2)}`);
-            }
-            // AQ CPU
-            if (cpu.aq > 0) {
-                for (let i = 0; i < cpu.aq; i++) {
-                    aqAddrs.push(`QW${cpu.aqStart + (i * 2)}`);
-                }
-            }
-            
-            // Espansioni
-            let expAIStart = 96;
-            let expAQStart = 96;
-            PLC.hardware.installedExpansions.forEach(expId => {
-                const exp = PLC.hardware.expansions[expId];
-                if (exp) {
-                    totalDI += exp.di || 0;
-                    totalDQ += exp.dq || 0;
-                    
-                    for (let i = 0; i < (exp.ai || 0); i++) {
-                        aiAddrs.push(`IW${expAIStart + (i * 2)}`);
-                    }
-                    expAIStart += (exp.ai || 0) * 2;
-                    totalAI += exp.ai || 0;
-                    
-                    for (let i = 0; i < (exp.aq || 0); i++) {
-                        aqAddrs.push(`QW${expAQStart + (i * 2)}`);
-                    }
-                    expAQStart += (exp.aq || 0) * 2;
-                    totalAQ += exp.aq || 0;
+                return groups.map(g => `${type}${g.from.byte}.${g.from.bit}-${type}${g.to.byte}.${g.to.bit} (${esc(g.module)})`);
+            };
+            const rows = [
+                ['DI', ranges(cfg.di, 'I')],
+                ['DQ', ranges(cfg.dq, 'Q')],
+                ['AI', cfg.ai.map(a => `IW${a}`)],
+                ['AQ', cfg.aq.map(a => `QW${a}`)]
+            ];
+            let addrMap = '<div class="address-map-title">Mappa Indirizzi:</div>';
+            rows.forEach(([label, list]) => {
+                if (list.length > 0) {
+                    addrMap += `<div class="address-map-row"><span class="addr">${label}:</span><span class="desc">${list.join(', ')}</span></div>`;
                 }
             });
-            
-            // Aggiorna summary
-            $('#hw-total-di').text(totalDI);
-            $('#hw-total-dq').text(totalDQ);
-            $('#hw-total-ai').text(totalAI);
-            $('#hw-total-aq').text(totalAQ);
-            
-            // Mappa indirizzi
-            let addrMap = '<div class="address-map-title">Mappa Indirizzi Analogici:</div>';
-            if (aiAddrs.length > 0) {
-                addrMap += '<div class="address-map-row"><span class="addr">AI:</span><span class="desc">' + aiAddrs.join(', ') + '</span></div>';
-            }
-            if (aqAddrs.length > 0) {
-                addrMap += '<div class="address-map-row"><span class="addr">AQ:</span><span class="desc">' + aqAddrs.join(', ') + '</span></div>';
-            }
             $('#hw-address-map').html(addrMap);
         },
         
         applyHardwareConfig: function() {
-            // Applica CPU selezionata
-            PLC.hardware.currentCPU = $('#hw-cpu-select').val();
+            const cpuId = $('#hw-cpu-select').val();
+            if (PLC.getIOConfig(cpuId, this.hwDraft).errors.length > 0) return;
             
-            // Ricrea griglia I/O analogici
-            this.createAnalogIOGrid();
+            PLC.hardware.currentCPU = cpuId;
+            PLC.hardware.installedExpansions = this.hwDraft.slice();
+            
+            // Ricrea griglie I/O digitali e analogici
+            this.createIOGrid();
             
             // Chiudi modal
             closeHardwareModal();
@@ -1968,7 +1942,7 @@
                 if (Array.isArray(hwConfig.installedExpansions)) {
                     PLC.hardware.installedExpansions = hwConfig.installedExpansions;
                 }
-                this.createAnalogIOGrid();
+                this.createIOGrid();
             }
             
             if (hmiConfig) {

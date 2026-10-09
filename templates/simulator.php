@@ -442,6 +442,7 @@
                         <span class="summary-value">0 - 27648 (0-10V / 4-20mA)</span>
                     </div>
                 </div>
+                <div id="hw-errors" class="hw-errors" role="alert"></div>
                 <div id="hw-address-map" class="address-map"></div>
             </div>
             
