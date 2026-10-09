@@ -2785,6 +2785,7 @@
         // ==================== EXPORT SCL (Structured Control Language) ====================
         exportSCL: function() {
             let scl = '';
+            this.sclEdgeCount = 0;
             const progName = (PLC.program.name || 'Main').replace(/[^a-zA-Z0-9_]/g, '_');
             
             // Header
@@ -2833,8 +2834,11 @@
                 return scl;
             }
             
-            // Genera condizione
-            const condition = this.inputsToSCL(inputs);
+            // Genera condizione; i box in serie (timer, contatori) e i fronti
+            // diventano chiamate prima dell'assegnazione delle uscite
+            const pre = [];
+            const condition = this.seriesToSCL(inputs, null, pre);
+            scl += pre.join('');
             
             // Genera azioni per ogni output
             outputs.forEach(elem => {
@@ -2843,6 +2847,38 @@
             
             scl += `\n`;
             return scl;
+        },
+
+        // Serie di elementi: restituisce l'espressione del risultato (prefix
+        // compreso) e accoda in pre le chiamate dei box e dei fronti. Un box
+        // riceve come ingresso la condizione di tutto cio' che lo precede e la
+        // sua uscita Q diventa la condizione per gli elementi successivi.
+        seriesToSCL: function(elements, prefix, pre) {
+            let terms = prefix ? [prefix] : [];
+            const sofar = () => terms.length ? terms.join(' AND ') : 'TRUE';
+            
+            (elements || []).forEach(elem => {
+                if (elem.type === 'branch') {
+                    const lines = (elem.lines || []).filter(line => line.length > 0);
+                    if (lines.length === 0) return;
+                    const base = sofar();
+                    const ors = lines.map(line => this.seriesToSCL(line, base, pre));
+                    terms = [`(${ors.join(' OR ')})`];
+                } else if (elem.type.startsWith('timer-') || elem.type.startsWith('counter-')) {
+                    pre.push(this.outputToSCL(elem, sofar()));
+                    terms = [this.inputElementToSCL(elem)];
+                } else if (elem.type === 'contact-p' || elem.type === 'contact-n') {
+                    // Come -|P|- / -|N|- di TIA: fronte dell'operando, in AND con la condizione
+                    const addr = elem.address || {};
+                    const inst = `"${elem.type === 'contact-p' ? 'R_TRIG' : 'F_TRIG'}_${++this.sclEdgeCount}"`;
+                    pre.push(`    ${inst}(CLK := "${addr.type || 'M'}${addr.byte || 0}.${addr.bit || 0}");\n`);
+                    terms.push(`${inst}.Q`);
+                } else {
+                    terms.push(this.inputElementToSCL(elem));
+                }
+            });
+            
+            return sofar();
         },
 
         inputsToSCL: function(elements) {
@@ -3587,8 +3623,12 @@
                     rungs: []
                 };
                 
-                // Parse networks/compile units
-                const networks = xmlDoc.querySelectorAll('SW\\.Blocks\\.CompileUnit, CompileUnit, FlgNet');
+                // Parse networks/compile units. Il FlgNet sta dentro il CompileUnit:
+                // cercarli insieme duplicava ogni network. FlgNet solo se mancano i CompileUnit.
+                let networks = xmlDoc.querySelectorAll('SW\\.Blocks\\.CompileUnit, CompileUnit');
+                if (networks.length === 0) {
+                    networks = xmlDoc.querySelectorAll('FlgNet');
+                }
                 
                 if (networks.length === 0) {
                     // Prova parsing generico per altri formati XML
