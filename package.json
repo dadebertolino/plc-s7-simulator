@@ -1,0 +1,9 @@
+{
+	"name": "plc-s7-simulator-tests",
+	"private": true,
+	"description": "Test di Unofficial S7-1200 Simulator: unit (node:test) ed E2E (wp-env + Playwright).",
+	"scripts": {
+		"test": "node --test \"tests/unit/*.test.js\"",
+		"check-js": "node bin/check-js.js"
+	}
+}

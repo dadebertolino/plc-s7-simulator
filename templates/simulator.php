@@ -1,3 +1,4 @@
+<?php defined('ABSPATH') || exit; ?>
 <div id="plc-simulator" class="plc-container">
     <!-- Header -->
     <header class="plc-header">
@@ -244,18 +245,6 @@
 
     <!-- Indicatore selezione multipla -->
     <div id="selection-indicator"></div>
-
-    <!-- Modal Caricamento -->
-    <div id="load-modal" class="plc-modal">
-        <div class="plc-modal-content">
-            <h2>Carica Programma</h2>
-            <div id="programs-list" class="plc-programs-list"></div>
-            <div class="plc-modal-buttons">
-                <button id="btn-load-confirm" class="plc-btn plc-btn-primary" disabled>Carica</button>
-                <button class="plc-btn plc-btn-cancel" onclick="closeModal()">Annulla</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Configurazione Elemento -->
     <div id="config-modal" class="plc-modal">
@@ -957,7 +946,7 @@
     <!-- Footer Credits -->
     <footer class="plc-footer">
         <div class="plc-footer-content">
-            <span>© 2026 Davide "the Prof." Bertolino — <a href="https://www.davidebertolino.it" target="_blank">www.davidebertolino.it</a> — <a href="mailto:info@davidebertolino.it">info@davidebertolino.it</a></span>
+            <span>© 2026 Davide "the Prof." Bertolino — <a href="https://www.davidebertolino.it" target="_blank" rel="noopener">www.davidebertolino.it</a> — <a href="mailto:info@davidebertolino.it">info@davidebertolino.it</a></span>
             <span class="plc-footer-version">Control Systems Toolbox v2.7</span>
         </div>
     </footer>

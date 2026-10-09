@@ -6,8 +6,8 @@ Un plugin didattico che simula un PLC Siemens S7-1200 direttamente nel browser. 
 
 **Versione:** 1.6.9  
 **Autore:** Davide Bertolino  
-**Licenza:** GPL v3 or later  
-**Richiede WordPress:** 5.0+  
+**Licenza:** GPL v2 or later  
+**Richiede WordPress:** 5.8+  
 **Richiede PHP:** 7.4+  
 **Demo:** [handsonstem.it/simulatore-s7-1200](https://handsonstem.it/simulatore-s7-1200/)  
 
@@ -184,9 +184,11 @@ Questo è un simulatore didattico:
 
 ## Licenza
 
-GPL v3 or later
+GPL v2 or later
 
 Sei libero di utilizzare, modificare e distribuire questo plugin.
+
+Include [JSZip](https://stuk.github.io/jszip/) 3.10.1 (licenza MIT) per l'import dei progetti TIA Portal.
 
 **Disclaimer:** Questo progetto non è affiliato con Siemens AG. "S7-1200", "SIMATIC" e "TIA Portal" sono marchi registrati di Siemens AG.
 

@@ -17,15 +17,16 @@
                 this.id = this.generateSessionId();
                 localStorage.setItem('plc_session_id', this.id);
             }
-            console.log('Session ID:', this.id);
         },
         
         generateSessionId: function() {
-            // ID univoco: timestamp + random
+            // ID univoco del browser (chiave della scena in localStorage)
             const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            const bytes = new Uint8Array(16);
+            window.crypto.getRandomValues(bytes);
             let id = '';
             for (let i = 0; i < 16; i++) {
-                id += chars.charAt(Math.floor(Math.random() * chars.length));
+                id += chars.charAt(bytes[i] % chars.length);
             }
             return id;
         },
@@ -816,29 +817,6 @@
                 e.stopPropagation();
             });
             
-            // Event handlers per modal caricamento (event delegation)
-            $('#programs-list').on('click', '.program-item', function(e) {
-                e.stopPropagation();
-                $('.program-item').removeClass('selected');
-                $(this).addClass('selected');
-                UI.selectedProgramId = $(this).data('id');
-                $('#btn-load-confirm').prop('disabled', false);
-                console.log('Selezionato programma ID:', UI.selectedProgramId);
-            });
-            
-            $('#programs-list').on('dblclick', '.program-item', function(e) {
-                e.stopPropagation();
-                const id = $(this).data('id');
-                console.log('Doppio click, carico programma ID:', id);
-                UI.loadProgram(id);
-            });
-            
-            $('#btn-load-confirm').on('click', function() {
-                console.log('Click Carica, ID:', UI.selectedProgramId);
-                if (UI.selectedProgramId) {
-                    UI.loadProgram(UI.selectedProgramId);
-                }
-            });
         },
         
         // ==================== Panel Collapse & RUN/STOP Mode ====================
@@ -2433,7 +2411,7 @@
             
             // Prepara oggetto completo per export
             const exportData = {
-                version: '1.6.9',
+                version: plcSimConfig.version,
                 name: name,
                 savedAt: new Date().toISOString(),
                 program: PLC.program,
@@ -2451,26 +2429,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
-            // Salva anche nel database
-            $.ajax({
-                url: plcAjax.ajaxurl,
-                method: 'POST',
-                data: {
-                    action: 'plc_save_program',
-                    nonce: plcAjax.nonce,
-                    session_id: Session.id,
-                    name: name,
-                    program: JSON.stringify(PLC.program),
-                    hardware_config: JSON.stringify(hardwareConfig),
-                    hmi_config: HMI.exportConfig()
-                },
-                success: function(response) {
-                    if (response.success) {
-                        console.log('Programma salvato anche nel database');
-                    }
-                }
-            });
         },
 
         // Mostra modal caricamento
@@ -2519,175 +2477,83 @@
                 return;
             }
             
-            // Ferma simulazione
-            this.stopSimulation();
-            
-            // Carica programma
-            PLC.program = program;
-            PLC.program.name = name;
-            $('#program-name').val(name);
-            
-            // Carica hardware config se presente
-            if (hardwareConfig) {
-                if (hardwareConfig.currentCPU) {
-                    PLC.hardware.currentCPU = hardwareConfig.currentCPU;
-                }
-                if (hardwareConfig.installedExpansions) {
-                    PLC.hardware.installedExpansions = hardwareConfig.installedExpansions;
-                }
-                PLC.hardware.updateIOLimits();
+            try {
+                this.applyProgram(program, hardwareConfig, hmiConfig, name);
+            } catch (err) {
+                console.error('Errore caricamento programma:', err);
+                alert('Errore nel caricamento del programma: ' + err.message);
+                return;
             }
-            
-            // Carica HMI config se presente
-            if (hmiConfig) {
-                HMI.importConfig(JSON.stringify(hmiConfig));
-            }
-            
-            // Reset memoria PLC
-            PLC.resetMemory();
-            
-            // Render programma
-            LadderEditor.render();
-            this.updateDisplay();
             
             alert('Programma "' + name + '" caricato con successo!');
         },
 
-        // Carica programma
-        loadProgram: function(id) {
-            console.log('Caricamento programma ID:', id);
+        // Applica programma, hardware e HMI letti da un file salvato
+        applyProgram: function(data, hwConfig, hmiConfig, name) {
+            if (!data || typeof data !== 'object') {
+                throw new Error('Struttura programma non valida');
+            }
             
-            $.ajax({
-                url: plcAjax.ajaxurl,
-                method: 'POST',
-                data: {
-                    action: 'plc_load_program',
-                    nonce: plcAjax.nonce,
-                    session_id: Session.id,
-                    id: id
-                },
-                success: function(response) {
-                    console.log('Risposta server:', response);
-                    
-                    if (response.success) {
-                        try {
-                            UI.stopSimulation();
-                            PLC.reset();
-                            History.clear();
-                            
-                            // Il programma potrebbe essere gia un oggetto o una stringa JSON
-                            let data = response.data.program;
-                            console.log('Tipo dati:', typeof data);
-                            console.log('Dati raw:', data);
-                            
-                            if (typeof data === 'string') {
-                                // Prova a pulire il JSON se corrotto
-                                data = data.trim();
-                                // Rimuovi eventuali escape extra
-                                if (data.startsWith('\\"') || data.indexOf('\\"') !== -1) {
-                                    data = data.replace(/\\"/g, '"');
-                                }
-                                console.log('Dati puliti:', data);
-                                data = JSON.parse(data);
-                            }
-                            
-                            console.log('Dati programma parsed:', data);
-                            
-                            // Verifica struttura minima
-                            if (!data || typeof data !== 'object') {
-                                throw new Error('Struttura programma non valida');
-                            }
-                            
-                            // Assicura che rungs esista
-                            if (!data.rungs) {
-                                data.rungs = [];
-                            }
-                            
-                            // Compatibilita: converti vecchia struttura elements in inputs/outputs
-                            data.rungs.forEach(rung => {
-                                if (rung.elements && !rung.inputs) {
-                                    rung.inputs = [];
-                                    rung.outputs = [];
-                                    rung.elements.forEach(elem => {
-                                        if (elem.type && elem.type.startsWith('coil')) {
-                                            rung.outputs.push(elem);
-                                        } else {
-                                            rung.inputs.push(elem);
-                                        }
-                                    });
-                                    delete rung.elements;
-                                }
-                                if (!rung.inputs) rung.inputs = [];
-                                if (!rung.outputs) rung.outputs = [];
-                            });
-                            
-                            PLC.program = data;
-                            
-                            // Carica Hardware config se presente
-                            if (response.data.hardware_config) {
-                                try {
-                                    let hwConfig = response.data.hardware_config;
-                                    if (typeof hwConfig === 'string') {
-                                        hwConfig = JSON.parse(hwConfig);
-                                    }
-                                    if (hwConfig.currentCPU) {
-                                        PLC.hardware.currentCPU = hwConfig.currentCPU;
-                                    }
-                                    if (hwConfig.installedExpansions) {
-                                        PLC.hardware.installedExpansions = hwConfig.installedExpansions;
-                                    }
-                                    // Ricrea griglia I/O analogici
-                                    UI.createAnalogIOGrid();
-                                    console.log('Hardware config caricata:', hwConfig);
-                                } catch (e) {
-                                    console.warn('Errore caricamento Hardware config:', e);
-                                }
-                            }
-                            
-                            // Carica HMI config se presente
-                            if (response.data.hmi_config) {
-                                try {
-                                    HMI.importConfig(response.data.hmi_config);
-                                } catch (e) {
-                                    console.warn('Errore caricamento HMI config:', e);
-                                }
-                            }
-                            
-                            // Ricostruisci UI
-                            $('#ladder-canvas').empty();
-                            $('#program-name').val(data.name || 'Main [OB1]');
-                            UI.rungCounter = 0;
-                            UI.timerCounter = 0;
-                            UI.counterCounter = 0;
-                            
-                            if (data.rungs && data.rungs.length > 0) {
-                                data.rungs.forEach(rung => {
-                                    UI.rungCounter = Math.max(UI.rungCounter, rung.id || 0);
-                                    UI.renderRungFromData(rung);
-                                });
-                            } else {
-                                UI.addRung();
-                            }
-                            
-                            closeModal();
-                            UI.updateDisplay();
-                            console.log('Programma caricato con successo');
-                            
-                        } catch (err) {
-                            console.error('Errore parsing programma:', err);
-                            console.error('Dati ricevuti:', response.data.program);
-                            alert('Errore nel caricamento del programma: ' + err.message + '\n\nIl programma salvato potrebbe essere corrotto. Prova a salvare un nuovo programma.');
+            this.stopSimulation();
+            PLC.reset();
+            History.clear();
+            
+            if (!Array.isArray(data.rungs)) {
+                data.rungs = [];
+            }
+            
+            // Compatibilita: converti vecchia struttura elements in inputs/outputs
+            data.rungs.forEach(rung => {
+                if (rung.elements && !rung.inputs) {
+                    rung.inputs = [];
+                    rung.outputs = [];
+                    rung.elements.forEach(elem => {
+                        if (elem.type && elem.type.startsWith('coil')) {
+                            rung.outputs.push(elem);
+                        } else {
+                            rung.inputs.push(elem);
                         }
-                    } else {
-                        console.error('Errore risposta:', response);
-                        alert('Errore dal server: ' + (response.data || 'sconosciuto'));
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Errore AJAX:', status, error);
-                    alert('Errore di connessione: ' + error);
+                    });
+                    delete rung.elements;
                 }
+                if (!rung.inputs) rung.inputs = [];
+                if (!rung.outputs) rung.outputs = [];
             });
+            
+            data.name = name || data.name || 'Main [OB1]';
+            PLC.program = data;
+            
+            if (hwConfig && typeof hwConfig === 'object') {
+                if (hwConfig.currentCPU && PLC.hardware.cpuModels[hwConfig.currentCPU]) {
+                    PLC.hardware.currentCPU = hwConfig.currentCPU;
+                }
+                if (Array.isArray(hwConfig.installedExpansions)) {
+                    PLC.hardware.installedExpansions = hwConfig.installedExpansions;
+                }
+                this.createAnalogIOGrid();
+            }
+            
+            if (hmiConfig) {
+                HMI.importConfig(typeof hmiConfig === 'string' ? hmiConfig : JSON.stringify(hmiConfig));
+            }
+            
+            // Ricostruisci UI
+            $('#ladder-canvas').empty();
+            $('#program-name').val(data.name);
+            this.rungCounter = 0;
+            this.timerCounter = 0;
+            this.counterCounter = 0;
+            
+            if (data.rungs.length > 0) {
+                data.rungs.forEach(rung => {
+                    this.rungCounter = Math.max(this.rungCounter, rung.id || 0);
+                    this.renderRungFromData(rung);
+                });
+            } else {
+                this.addRung();
+            }
+            
+            this.updateDisplay();
         },
 
         // Render rung da dati salvati
@@ -7918,10 +7784,6 @@
     };
 
     // ==================== Global Functions ====================
-    window.closeModal = function() {
-        $('#load-modal').removeClass('active');
-    };
-
     window.closeConfigModal = function() {
         $('#config-modal').removeClass('active');
     };

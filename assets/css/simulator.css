@@ -1,5 +1,5 @@
 /* PLC S7-1200 Simulator - Industrial Theme */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+/* Font di sistema: nessuna richiesta a servizi esterni */
 
 /* ==================== WORDPRESS INTEGRATION ==================== */
 body:has(#plc-simulator) {
@@ -72,8 +72,8 @@ body:has(#plc-simulator) .wp-block-post-content {
     --plc-merker: #9333ea;
     --plc-wire: #6b7280;
     --plc-wire-active: #00d4aa;
-    --plc-font-mono: 'JetBrains Mono', monospace;
-    --plc-font-sans: 'Inter', -apple-system, sans-serif;
+    --plc-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    --plc-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Container */
@@ -1504,44 +1504,6 @@ body:has(#plc-simulator) .wp-block-post-content {
     margin-top: 20px;
 }
 
-.plc-programs-list {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.program-item {
-    background: var(--plc-bg-dark);
-    border: 1px solid var(--plc-border);
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.program-item:hover {
-    border-color: var(--plc-accent);
-    background: rgba(0, 212, 170, 0.1);
-}
-
-.program-item.selected {
-    border-color: var(--plc-accent);
-    background: rgba(0, 212, 170, 0.2);
-    box-shadow: 0 0 8px rgba(0, 212, 170, 0.3);
-}
-
-.program-item-name {
-    font-weight: 600;
-    pointer-events: none;
-}
-
-.program-item-date {
-    font-size: 11px;
-    color: var(--plc-text-dim);
-    margin-top: 4px;
-    pointer-events: none;
-}
-
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;
@@ -2529,7 +2491,7 @@ body:has(#plc-simulator) .wp-block-post-content {
     border: 2px solid #333;
     border-radius: 4px;
     padding: 8px 12px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--plc-font-mono);
     font-size: 24px;
     color: #00ff00;
     text-shadow: 0 0 10px currentColor;
