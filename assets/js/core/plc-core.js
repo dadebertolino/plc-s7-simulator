@@ -473,17 +473,19 @@
                 if (!rung.outputs) rung.outputs = [];
 
                 // Valuta inputs (condizioni)
-                let power = this.evaluateBranch(rung.inputs, rung);
+                let power = this.evaluateBranch(rung.inputs, rung, undefined, rungIdx + ':i');
                 rung.inputPower = power;
 
                 // Valuta outputs (azioni) - ricevono il power dagli inputs
-                this.evaluateBranch(rung.outputs, rung, power);
+                this.evaluateBranch(rung.outputs, rung, power, rungIdx + ':o');
 
                 rung.power = power;
             },
 
-            // Valuta branch/serie di elementi (supporta annidamento)
-            evaluateBranch: function(elements, rung, initialPower) {
+            // Valuta branch/serie di elementi (supporta annidamento).
+            // path identifica la posizione nel programma: e' la chiave della
+            // memoria dei fronti, una per istruzione come in TIA Portal.
+            evaluateBranch: function(elements, rung, initialPower, path) {
                 let power = initialPower !== undefined ? initialPower : 1;
 
                 for (let i = 0; i < elements.length; i++) {
@@ -492,14 +494,14 @@
                     if (elem.type === 'branch') {
                         // Parallelo - OR tra le linee (ricorsivo per sub-branch)
                         let branchPower = 0;
-                        elem.lines.forEach(line => {
-                            const linePower = this.evaluateBranch(line, rung, power);
+                        elem.lines.forEach((line, li) => {
+                            const linePower = this.evaluateBranch(line, rung, power, `${path}.${i}/${li}`);
                             branchPower = branchPower || linePower;
                         });
                         elem.state = branchPower;
                         power = branchPower;
                     } else {
-                        power = this.evaluateElement(elem, power);
+                        power = this.evaluateElement(elem, power, `${path}.${i}`);
                         elem.state = power;
                     }
                 }
@@ -508,7 +510,7 @@
             },
 
             // Valuta singolo elemento
-            evaluateElement: function(elem, inputPower) {
+            evaluateElement: function(elem, inputPower, path) {
                 const addr = elem.address || {};
                 const type = addr.type || 'M';
                 const byte = addr.byte || 0;
@@ -522,17 +524,16 @@
                         return inputPower && !PLC.readBit(type, byte, bit);
 
                     case 'contact-p': {
-                        // Positive edge (fronte di salita)
-                        const edgeId = `P_${type}${byte}.${bit}`;
-                        const currentVal = inputPower && PLC.readBit(type, byte, bit);
-                        return PLC.edgeP(edgeId, currentVal);
+                        // Fronte di salita dell'operando (la memoria si aggiorna
+                        // anche senza potenza), in AND con la potenza
+                        const edge = PLC.edgeP(`P@${path}`, PLC.readBit(type, byte, bit));
+                        return inputPower && edge ? 1 : 0;
                     }
 
                     case 'contact-n': {
-                        // Negative edge (fronte di discesa)
-                        const edgeId = `N_${type}${byte}.${bit}`;
-                        const currentVal = inputPower && PLC.readBit(type, byte, bit);
-                        return PLC.edgeN(edgeId, currentVal);
+                        // Fronte di discesa dell'operando, in AND con la potenza
+                        const edge = PLC.edgeN(`N@${path}`, PLC.readBit(type, byte, bit));
+                        return inputPower && edge ? 1 : 0;
                     }
 
                     case 'coil':
