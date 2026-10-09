@@ -4,7 +4,7 @@
 
 Un plugin didattico che simula un PLC Siemens S7-1200 direttamente nel browser. Programmazione Ladder, HMI touch, impianti virtuali animati. Nessun hardware richiesto.
 
-**Versione:** 1.7.0  
+**Versione:** 1.8.0  
 **Autore:** Davide Bertolino  
 **Licenza:** GPL v2 or later  
 **Richiede WordPress:** 5.8+  
@@ -146,6 +146,13 @@ Test e CI sono descritti in [TESTING.md](TESTING.md).
 ---
 
 ## Changelog
+
+### 1.8.0
+- Istruzioni MOVE, NORM_X e SCALE_X nell'editor, con EN/ENO come in TIA Portal
+- Doppie word REAL (MD) in memoria M, sovrapposte a MB e MW; leggibili anche dai comparatori
+- Export AWL, SCL e XML dei nuovi box; l'XML del simulatore li reimporta
+- Tempo di ciclo nella barra di stato: attuale, minimo e massimo dall'ultimo RUN
+- Immagine di processo degli ingressi: una bobina o un Set su un ingresso vale solo per il ciclo in corso
 
 ### 1.7.0
 - Motore PLC in un modulo separato, coperto da unit test
