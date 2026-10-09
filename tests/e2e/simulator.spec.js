@@ -97,6 +97,20 @@ test.describe( 'salva e carica', () => {
 		expect( errors ).toEqual( [] );
 	} );
 
+	test( 'un file senza id degli elementi: gli elementi si configurano', async ( { page } ) => {
+		await openSimulator( page );
+		await loadProgramFile( page, {
+			name: 'Senza id',
+			program: { rungs: [ {
+				inputs: [ { type: 'contact-no', address: { type: 'I', byte: 0, bit: 0 } }, { type: 'contact-no', address: { type: 'I', byte: 0, bit: 1 } } ],
+				outputs: [ { type: 'coil', address: { type: 'Q', byte: 0, bit: 0 } } ],
+			} ] },
+		} );
+		await setAddress( page, 1, 'M', 4, 2 );
+		await expect( page.locator( '.ladder-element .element-address' ).nth( 0 ) ).toHaveText( 'I0.0' );
+		await expect( page.locator( '.ladder-element .element-address' ).nth( 1 ) ).toHaveText( 'M4.2' );
+	} );
+
 	test( 'Carica accetta il formato vecchio (solo programma, elements)', async ( { page } ) => {
 		await openSimulator( page );
 		await loadProgramFile( page, {

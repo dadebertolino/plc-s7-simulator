@@ -1942,6 +1942,7 @@
             });
             
             data.name = name || data.name || 'Main [OB1]';
+            window.PLCSimCore.assignIds(data);
             PLC.program = data;
             
             if (hwConfig && typeof hwConfig === 'object') {
@@ -3543,6 +3544,7 @@
                 
                 this.stopSimulation();
                 PLC.reset();
+                window.PLCSimCore.assignIds(data);
                 PLC.program = data;
                 
                 $('#ladder-canvas').empty();

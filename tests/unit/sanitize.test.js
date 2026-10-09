@@ -76,3 +76,24 @@ describe('sanitizeData', () => {
         assert.deepEqual(sanitizeData({ label: { toString: 1 }, name: 5 }), { label: '', name: '5' });
     });
 });
+
+describe('assignIds', () => {
+    const { assignIds } = PLCSimCore;
+
+    test('assegna id unici a elementi e diramazioni che non li hanno o li ripetono', () => {
+        const program = { rungs: [
+            { id: 1, inputs: [{ type: 'contact-no' }, { id: 5, type: 'branch', lines: [[{ id: 5, type: 'contact-no' }], [{ type: 'contact-nc' }]] }], outputs: [{ id: 7, type: 'coil' }] },
+            { id: 1, inputs: [{ id: 7, type: 'contact-no' }], outputs: [] },
+        ] };
+        assignIds(program);
+        const ids = [];
+        const walk = (list) => list.forEach(e => { ids.push(e.id); if (e.lines) e.lines.forEach(walk); });
+        program.rungs.forEach(r => { walk(r.inputs); walk(r.outputs); });
+        assert.equal(ids.length, 6);
+        assert.equal(new Set(ids).size, 6, 'id tutti diversi: ' + ids);
+        assert.ok(ids.every(id => typeof id === 'number' && Number.isFinite(id)));
+        assert.equal(program.rungs[0].inputs[1].id, 5, 'il primo id resta');
+        assert.equal(program.rungs[0].outputs[0].id, 7);
+        assert.notEqual(program.rungs[0].id, program.rungs[1].id, 'anche i segmenti');
+    });
+});

@@ -767,7 +767,42 @@
             .replace(/'/g, '&#39;');
     }
 
-    const PLCSimCore = { create, sanitizeData, escapeHtml };
+    // Id unici per segmenti, elementi e diramazioni di un programma caricato:
+    // l'editor li usa per trovare l'elemento da configurare o spostare.
+    // Mancano nei file scritti a mano e possono ripetersi negli import
+    // (Date.now() nello stesso millisecondo). Il primo id incontrato resta.
+    function assignIds(program) {
+        const seen = new Set();
+        let next = 1;
+        const fresh = () => {
+            while (seen.has(next)) next++;
+            return next;
+        };
+        const fix = (obj) => {
+            if (typeof obj.id !== 'number' || !Number.isFinite(obj.id) || seen.has(obj.id)) {
+                obj.id = fresh();
+            }
+            seen.add(obj.id);
+        };
+        const walk = (list) => (Array.isArray(list) ? list : []).forEach(e => {
+            if (!e || typeof e !== 'object') return;
+            fix(e);
+            if (Array.isArray(e.lines)) e.lines.forEach(walk);
+        });
+        const rungIds = new Set();
+        (program.rungs || []).forEach((rung, idx) => {
+            if (typeof rung.id !== 'number' || !Number.isFinite(rung.id) || rungIds.has(rung.id)) {
+                rung.id = Math.max(0, ...rungIds) + 1 + idx;
+                while (rungIds.has(rung.id)) rung.id++;
+            }
+            rungIds.add(rung.id);
+            walk(rung.inputs);
+            walk(rung.outputs);
+        });
+        return program;
+    }
+
+    const PLCSimCore = { create, sanitizeData, escapeHtml, assignIds };
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = PLCSimCore;
