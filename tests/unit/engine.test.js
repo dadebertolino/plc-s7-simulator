@@ -452,3 +452,37 @@ describe('passaggi RUN/STOP come in S7-1200', () => {
         assert.equal(plc.counter(0).CV, 1);
     });
 });
+
+describe('immagine di processo degli ingressi', () => {
+    test('una bobina su un ingresso scrive l\'immagine, non il campo', () => {
+        // Rung 1 forza I0.1 nell'immagine, rung 2 la legge nello stesso ciclo
+        const plc = newPlc([
+            RUNG([NO('I0.0')], [COIL('I0.1')]),
+            RUNG([NO('I0.1')], [COIL('Q0.0')]),
+        ]);
+        plc.set('I0.0', 1);
+        plc.scan();
+        assert.equal(plc.get('Q0.0'), 1);
+        assert.equal(plc.get('I0.1'), 0, 'il campo resta com\'era');
+
+        // Al ciclo dopo l'immagine riparte dal campo
+        plc.set('I0.0', 0);
+        plc.scan();
+        assert.equal(plc.get('Q0.0'), 0);
+    });
+
+    test('un Set su un ingresso vale solo per il ciclo in corso', () => {
+        // Prima il Set restava sul campo: I0.1 sembrava premuto per sempre
+        const plc = newPlc([
+            RUNG([NO('I0.0')], [SET('I0.1')]),
+            RUNG([NO('I0.1')], [COIL('Q0.0')]),
+        ]);
+        plc.set('I0.0', 1);
+        plc.scan();
+        assert.equal(plc.get('Q0.0'), 1);
+        plc.set('I0.0', 0);
+        plc.scan();
+        assert.equal(plc.get('I0.1'), 0);
+        assert.equal(plc.get('Q0.0'), 0);
+    });
+});

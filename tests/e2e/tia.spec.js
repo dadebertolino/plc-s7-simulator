@@ -89,4 +89,34 @@ test.describe( 'TIA Portal', () => {
 		await expect( page.locator( '#program-name' ) ).toHaveValue( 'Nastro' );
 		expect( errors ).toEqual( [] );
 	} );
+
+	test( 'box NORM_X e SCALE_X: export SCL e AWL, andata e ritorno in XML', async ( { page } ) => {
+		const errors = await openSimulator( page );
+		await loadProgramFile( page, {
+			name: 'Livello',
+			program: { rungs: [ {
+				id: 1,
+				inputs: [
+					{ id: 1, type: 'contact-no', address: { type: 'I', byte: 0, bit: 0 } },
+					{ id: 2, type: 'norm-x', pins: { MIN: { type: 'const', value: 0 }, VALUE: { type: 'IW', value: 64 }, MAX: { type: 'const', value: 27648 }, OUT: { type: 'MD', value: 20 } } },
+					{ id: 3, type: 'scale-x', pins: { MIN: { type: 'const', value: 0 }, VALUE: { type: 'MD', value: 20 }, MAX: { type: 'const', value: 100 }, OUT: { type: 'MW', value: 30 } } },
+				],
+				outputs: [ { id: 4, type: 'coil', address: { type: 'Q', byte: 0, bit: 0 } } ],
+			} ] },
+		} );
+
+		const scl = await exportAs( page, 3 );
+		expect( scl.text ).toContain( 'IF "I0.0" THEN\n        "MD20" := NORM_X(MIN := 0, VALUE := "IW64", MAX := 27648);' );
+		expect( scl.text ).toContain( '"MW30" := SCALE_X(MIN := 0, VALUE := "MD20", MAX := 100);' );
+
+		const awl = await exportAs( page, 2 );
+		expect( awl.text ).toContain( 'CALL  NORM_X' );
+		expect( awl.text ).toMatch( /VALUE:=IW64/ );
+
+		const xml = await exportAs( page, 4 );
+		await importFile( page, 'Livello.xml', Buffer.from( xml.text ) );
+		await expect( page.locator( '.math-box' ) ).toHaveCount( 2 );
+		await expect( page.locator( '.math-box' ).nth( 1 ) ).toContainText( 'OUT: MW30' );
+		expect( errors ).toEqual( [] );
+	} );
 } );

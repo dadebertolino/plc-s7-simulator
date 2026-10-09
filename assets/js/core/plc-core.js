@@ -62,6 +62,13 @@
             Q: new Uint8Array(1024),
             M: new Uint8Array(8192),
 
+            // Immagine di processo degli ingressi (PII): a inizio ciclo copia
+            // degli ingressi del campo (I), che pulsanti, HMI e Scene scrivono.
+            // Durante il ciclo il programma legge e scrive qui: una bobina su
+            // un ingresso cambia l'immagine e non il campo, come in S7.
+            PII: new Uint8Array(1024),
+            scanning: false,
+
             // Timers
             timers: {},
 
@@ -80,6 +87,10 @@
             running: false,
             scanTime: 50, // ms
             scanInterval: null,
+
+            // Tempo di ciclo in ms fra l'inizio di due cicli, come nella
+            // diagnostica della CPU (attuale, minimo, massimo dall'ultimo RUN)
+            cycle: { last: 0, min: 0, max: 0, start: null },
 
             // Programma Ladder
             program: {
@@ -176,10 +187,12 @@
                 return { totalAI: cfg.ai.length, totalAQ: cfg.aq.length, aiAddresses: cfg.ai, aqAddresses: cfg.aq };
             },
 
-            // Area di un bit ('I', 'Q', 'M') o di una word ('IW', 'QW', 'MW')
+            // Area di un bit ('I', 'Q', 'M'), di una word ('IW', 'QW', 'MW')
+            // o di una doppia word ('ID', 'QD', 'MD')
             area: function(type) {
-                const name = type && type.length === 2 && type[1] === 'W' ? type[0] : type;
-                return name === 'I' || name === 'Q' || name === 'M' ? this[name] : null;
+                const name = type && type.length === 2 && (type[1] === 'W' || type[1] === 'D') ? type[0] : type;
+                if (name === 'I') return this.scanning ? this.PII : this.I;
+                return name === 'Q' || name === 'M' ? this[name] : null;
             },
 
             // Leggi bit
@@ -226,6 +239,20 @@
                 arr[address + 1] = v & 0xFF;
             },
 
+            // Leggi doppia word REAL (IEEE 754 a 32 bit, byte alto all'indirizzo piu' basso)
+            readReal: function(type, address) {
+                const arr = this.area(type);
+                if (!arr || !(address >= 0 && address + 3 < arr.length)) return 0;
+                return new DataView(arr.buffer, arr.byteOffset + address, 4).getFloat32(0);
+            },
+
+            // Scrivi doppia word REAL
+            writeReal: function(type, address, value) {
+                const arr = this.area(type);
+                if (!arr || !(address >= 0 && address + 3 < arr.length)) return;
+                new DataView(arr.buffer, arr.byteOffset + address, 4).setFloat32(0, Number(value) || 0);
+            },
+
             // Converti valore analogico in unità ingegneristiche
             // es: AIW 0-27648 -> 0-100% o 0-10V o 4-20mA
             analogToEngineering: function(rawValue, engMin, engMax) {
@@ -250,6 +277,7 @@
                 this.Q.fill(0);
                 this.M.fill(0);
                 this.edges = {};
+                this.cycle = { last: 0, min: 0, max: 0, start: null };
                 Object.keys(this.timers).forEach(k => {
                     const t = this.timers[k];
                     t.ET = 0;
@@ -474,12 +502,13 @@
                 return result;
             },
 
-            // Ottieni valore operando per comparatori
+            // Valore di un operando di comparatori e box: costante, CV, ET,
+            // word INT (IW, QW, MW) o doppia word REAL (MD)
             getOperandValue: function(op) {
                 if (!op) return 0;
                 switch (op.type) {
                     case 'const':
-                        return parseInt(op.value) || 0;
+                        return Number(op.value) || 0;
                     case 'counter':
                         const cid = 'C' + (op.value || 0);
                         return this.counters[cid] ? this.counters[cid].CV : 0;
@@ -490,6 +519,31 @@
                     case 'IW':
                     case 'QW':
                         return this.readWord(op.type, parseInt(op.value) || 0);
+                    case 'MD':
+                        return this.readReal(op.type, parseInt(op.value) || 0);
+                    default:
+                        return 0;
+                }
+            },
+
+            // Scrive il risultato di un box nell'operando OUT. Una word e' un
+            // INT: il valore si arrotonda e, se non ci sta, non si scrive e il
+            // box restituisce ENO = 0, come per un risultato fuori campo in TIA.
+            writeOperand: function(op, value) {
+                if (!op || !Number.isFinite(value)) return 0;
+                const address = parseInt(op.value) || 0;
+                switch (op.type) {
+                    case 'MW':
+                    case 'QW':
+                    case 'IW': {
+                        const v = Math.round(value);
+                        if (v < -32768 || v > 32767) return 0;
+                        this.writeWord(op.type, address, v);
+                        return 1;
+                    }
+                    case 'MD':
+                        this.writeReal(op.type, address, value);
+                        return 1;
                     default:
                         return 0;
                 }
@@ -539,9 +593,25 @@
             execute: function() {
                 if (!PLC.running) return;
 
-                PLC.program.rungs.forEach((rung, idx) => {
-                    this.executeRung(rung, idx);
-                });
+                // Tempo di ciclo: dall'inizio del ciclo precedente a questo
+                const now = PLC.now();
+                const c = PLC.cycle;
+                if (c.start !== null) {
+                    c.last = now - c.start;
+                    c.min = c.min ? Math.min(c.min, c.last) : c.last;
+                    c.max = Math.max(c.max, c.last);
+                }
+                c.start = now;
+
+                PLC.PII.set(PLC.I);
+                PLC.scanning = true;
+                try {
+                    PLC.program.rungs.forEach((rung, idx) => {
+                        this.executeRung(rung, idx);
+                    });
+                } finally {
+                    PLC.scanning = false;
+                }
             },
 
             // Esegui singolo rung
@@ -690,6 +760,35 @@
                         const val1 = PLC.getOperandValue(elem.operand1);
                         const val2 = PLC.getOperandValue(elem.operand2);
                         return PLC.compare(op, val1, val2);
+                    }
+
+                    // Box di trasferimento e conversione: eseguiti con EN = 1,
+                    // ENO = 1 se il risultato e' stato scritto
+                    case 'move': {
+                        if (!inputPower) return 0;
+                        const pins = elem.pins || {};
+                        return PLC.writeOperand(pins.OUT, PLC.getOperandValue(pins.IN));
+                    }
+
+                    case 'norm-x': {
+                        // OUT = (VALUE - MIN) / (MAX - MIN), senza limitare a 0..1
+                        if (!inputPower) return 0;
+                        const pins = elem.pins || {};
+                        const min = PLC.getOperandValue(pins.MIN);
+                        const max = PLC.getOperandValue(pins.MAX);
+                        if (max === min) return 0;
+                        const value = PLC.getOperandValue(pins.VALUE);
+                        return PLC.writeOperand(pins.OUT, (value - min) / (max - min));
+                    }
+
+                    case 'scale-x': {
+                        // OUT = VALUE * (MAX - MIN) + MIN, senza limitare a MIN..MAX
+                        if (!inputPower) return 0;
+                        const pins = elem.pins || {};
+                        const min = PLC.getOperandValue(pins.MIN);
+                        const max = PLC.getOperandValue(pins.MAX);
+                        const value = PLC.getOperandValue(pins.VALUE);
+                        return PLC.writeOperand(pins.OUT, value * (max - min) + min);
                     }
 
                     default:
