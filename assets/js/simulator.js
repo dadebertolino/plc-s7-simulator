@@ -38,6 +38,10 @@
 
     // Motore PLC e Ladder (assets/js/core/plc-core.js)
     const { PLC, LadderEngine } = window.PLCSimCore.create();
+    
+    // Dati importati: filtro all'ingresso, escape in uscita per il testo libero
+    const sanitize = window.PLCSimCore.sanitizeData;
+    const esc = window.PLCSimCore.escapeHtml;
 
     // ==================== History Manager (Undo/Redo) ====================
     const History = {
@@ -971,7 +975,7 @@
                 <div class="ladder-rung" data-rung-id="${rung.id}">
                     <div class="rung-header">
                         <span class="rung-number">Network ${rung.id}</span>
-                        <input type="text" class="rung-comment" placeholder="Commento..." value="${rung.comment || ''}">
+                        <input type="text" class="rung-comment" placeholder="Commento..." value="${esc(rung.comment || '')}">
                         <div class="rung-actions">
                             <button class="rung-move-up" title="Sposta su">^</button>
                             <button class="rung-move-down" title="Sposta giu">v</button>
@@ -1290,7 +1294,7 @@
                 <div class="ladder-element ${elem.type}" data-elem-id="${elem.id}" data-rung-id="${rungId}" data-idx="${idx}" data-section="${section || 'inputs'}">
                     <div class="element-symbol">${symbolHtml}</div>
                     <div class="element-address">${displayAddr}</div>
-                    ${elem.comment ? `<div class="element-comment">${elem.comment}</div>` : ''}
+                    ${elem.comment ? `<div class="element-comment">${esc(elem.comment)}</div>` : ''}
                 </div>
             `;
         },
@@ -1902,9 +1906,11 @@
 
         // Applica programma, hardware e HMI letti da un file salvato
         applyProgram: function(data, hwConfig, hmiConfig, name) {
-            if (!data || typeof data !== 'object') {
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
                 throw new Error('Struttura programma non valida');
             }
+            data = sanitize(data);
+            hwConfig = sanitize(hwConfig);
             
             this.stopSimulation();
             PLC.reset();
@@ -3527,8 +3533,8 @@
 
         importJSON: function(content) {
             try {
-                const data = JSON.parse(content);
-                if (!data.rungs) {
+                const data = sanitize(JSON.parse(content));
+                if (!data || !Array.isArray(data.rungs)) {
                     throw new Error('Formato JSON non valido');
                 }
                 
@@ -3814,7 +3820,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>${PLC.program.name} - Ladder Diagram</title>
+    <title>${esc(PLC.program.name)} - Ladder Diagram</title>
     <style>
         @page { size: A4 landscape; margin: 15mm; }
         body { 
@@ -4030,7 +4036,7 @@
         },
 
         escapeHtml: function(str) {
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return esc(str);
         }
     };
 
@@ -4215,7 +4221,7 @@
                 this.zoomFit();
             }, 100);
             
-            console.log(`HMI: Modello cambiato a ${model.name} (${model.resolution.w}x${model.resolution.h})`);
+            console.log(`HMI: Modello cambiato a ${esc(model.name)} (${model.resolution.w}x${model.resolution.h})`);
         },
         
         // Genera tasti funzione in base al modello
@@ -4238,7 +4244,7 @@
                 const label = config.label || fkeyId;
                 const hasConfig = config.action && config.action !== 'none';
                 
-                return $(`<button class="hmi-fkey ${hasConfig ? 'configured' : ''}" data-fkey="${fkeyId}" title="${fkeyId}: ${this.getFkeyActionDescription(config)}">${label}</button>`)
+                return $(`<button class="hmi-fkey ${hasConfig ? 'configured' : ''}" data-fkey="${fkeyId}" title="${esc(fkeyId + ': ' + this.getFkeyActionDescription(config))}">${esc(label)}</button>`)
                     .on('click', function(e) {
                         if (PLC.running) {
                             // In RUN: esegui azione
@@ -4315,7 +4321,7 @@
             const $pageSelect = $('#fkey-config-page');
             $pageSelect.empty();
             this.pages.forEach(p => {
-                $pageSelect.append(`<option value="${p.id}">${p.name}</option>`);
+                $pageSelect.append(`<option value="${p.id}">${esc(p.name)}</option>`);
             });
             
             // Imposta valori target se esistono
@@ -4670,7 +4676,7 @@
                 const canDelete = this.pages.length > 1;
                 const $tab = $(`
                     <div class="hmi-page-tab ${isActive ? 'active' : ''}" data-page-id="${page.id}">
-                        <span class="hmi-page-name">${page.name}</span>
+                        <span class="hmi-page-name">${esc(page.name)}</span>
                         ${canDelete ? '<button class="hmi-page-delete" title="Elimina pagina">&times;</button>' : ''}
                     </div>
                 `);
@@ -4877,7 +4883,7 @@
             switch (elem.type) {
                 case 'led':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-led-light ${elem.color}"></div>
                         <div class="hmi-element-address">${addr}</div>
                     `;
@@ -4885,15 +4891,15 @@
                     
                 case 'button':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
-                        <div class="hmi-button-btn ${elem.color}">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
+                        <div class="hmi-button-btn ${elem.color}">${esc(elem.label)}</div>
                         <div class="hmi-element-address">${addr}</div>
                     `;
                     break;
                     
                 case 'switch':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-switch-track">
                             <div class="hmi-switch-knob"></div>
                         </div>
@@ -4903,7 +4909,7 @@
                     
                 case 'display':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-display-screen ${elem.color}">0</div>
                         <div class="hmi-element-address">${addr}</div>
                     `;
@@ -4911,7 +4917,7 @@
                     
                 case 'slider':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-slider-container">
                             <input type="range" class="hmi-slider-input" min="${elem.min}" max="${elem.max}" value="0">
                             <div class="hmi-slider-value">0</div>
@@ -4922,7 +4928,7 @@
                     
                 case 'gauge':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-gauge-container">
                             <div class="hmi-gauge-bg"></div>
                             <div class="hmi-gauge-fill"></div>
@@ -4937,7 +4943,7 @@
                 // ==================== SIMBOLI INDUSTRIALI ====================
                 case 'motor':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-motor">
                             <svg viewBox="0 0 60 60" class="hmi-motor-svg">
                                 <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="3"/>
@@ -4951,7 +4957,7 @@
                     
                 case 'valve':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-valve">
                             <svg viewBox="0 0 40 60" class="hmi-valve-svg">
                                 <polygon points="5,15 35,15 20,35" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -4966,7 +4972,7 @@
                     
                 case 'pump':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-pump">
                             <svg viewBox="0 0 60 60" class="hmi-pump-svg">
                                 <circle cx="30" cy="30" r="22" fill="none" stroke="currentColor" stroke-width="3"/>
@@ -4981,7 +4987,7 @@
                     
                 case 'tank':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-tank">
                             <svg viewBox="0 0 60 100" class="hmi-tank-svg">
                                 <rect x="5" y="10" width="50" height="80" rx="5" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -4998,7 +5004,7 @@
                     
                 case 'conveyor':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-conveyor">
                             <svg viewBox="0 0 120 40" class="hmi-conveyor-svg">
                                 <ellipse cx="20" cy="20" rx="15" ry="12" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -5019,7 +5025,7 @@
                     
                 case 'light':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-light">
                             <div class="hmi-light-lamp red"></div>
                             <div class="hmi-light-lamp yellow"></div>
@@ -5049,7 +5055,7 @@
                 case 'text':
                     content = `
                         <div class="hmi-text">
-                            <span class="hmi-text-content">${elem.label.replace('{v}', '0')}</span>
+                            <span class="hmi-text-content">${esc(String(elem.label || '').replace('{v}', '0'))}</span>
                         </div>
                     `;
                     break;
@@ -5058,7 +5064,7 @@
                     // Canvas per grafico trend
                     content = `
                         <div class="hmi-trend">
-                            <div class="hmi-trend-label">${elem.label}</div>
+                            <div class="hmi-trend-label">${esc(elem.label)}</div>
                             <canvas class="hmi-trend-canvas" data-id="${elem.id}"></canvas>
                         </div>
                     `;
@@ -5070,7 +5076,7 @@
                     if (!elem.trendMaxPoints) elem.trendMaxPoints = 100;
                     if (!elem.trendInterval) elem.trendInterval = 500;
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-trend">
                             <canvas class="hmi-trend-canvas" width="280" height="130"></canvas>
                             <div class="hmi-trend-info">
@@ -5408,7 +5414,7 @@
                         
                     case 'text':
                         // Sostituisci {v} con il valore
-                        const textContent = elem.label.replace('{v}', value);
+                        const textContent = String(elem.label || '').replace('{v}', value);
                         $el.find('.hmi-text-content').text(textContent);
                         break;
                         
@@ -5615,7 +5621,7 @@
             try {
                 const saved = localStorage.getItem('plc_hmi_config');
                 if (saved) {
-                    const data = JSON.parse(saved);
+                    const data = sanitize(JSON.parse(saved));
                     
                     // Carica modello HMI se presente
                     if (data.model && this.hmiModels[data.model]) {
@@ -5759,7 +5765,7 @@
                     <div class="alarm-item ${statusClass}" data-alarm-id="${alarm.id}">
                         <div class="alarm-status-icon">${alarm.active ? '🔴' : '⚪'}</div>
                         <div class="alarm-info">
-                            <div class="alarm-message">${alarm.message}</div>
+                            <div class="alarm-message">${esc(alarm.message)}</div>
                             <div class="alarm-condition">${varAddr} ${alarm.condition} ${alarm.value}</div>
                         </div>
                         <div class="alarm-actions">
@@ -6000,7 +6006,7 @@
         importConfig: function(json) {
             try {
                 this.clearAll();
-                const data = JSON.parse(json);
+                const data = sanitize(JSON.parse(json));
                 
                 // Carica modello HMI se presente
                 if (data.model && this.hmiModels[data.model]) {
@@ -6372,7 +6378,7 @@
                 $list.append(`
                     <div class="alarm-config-item" data-alarm-id="${alarm.id}">
                         <span class="alarm-priority-dot ${alarm.priority}"></span>
-                        <span class="config-msg">${alarm.msg}</span>
+                        <span class="config-msg">${esc(alarm.msg)}</span>
                         <span class="config-var">${varStr}</span>
                         <span class="${alarm.enabled ? 'config-enabled' : 'config-disabled'}">${alarm.enabled ? '✓' : '○'}</span>
                     </div>
@@ -6478,7 +6484,7 @@
                     <div class="alarm-item ${alarm.priority} ${alarm.acked ? 'acked' : 'unacked'}" data-alarm-id="${alarm.id}">
                         <span class="alarm-icon-small">⚠</span>
                         <div class="alarm-details">
-                            <div class="alarm-msg">${alarm.msg}</div>
+                            <div class="alarm-msg">${esc(alarm.msg)}</div>
                             <div class="alarm-time">${time} <span class="alarm-var">${alarm.varStr}</span></div>
                         </div>
                         ${!alarm.acked ? '<button class="alarm-ack-btn">ACK</button>' : ''}
@@ -6536,7 +6542,7 @@
                     <div class="alarm-history-item">
                         <span class="hist-time">${entry.time}</span>
                         <span class="hist-type ${entry.type}">${typeLabel}</span>
-                        <span class="hist-msg">${entry.msg}</span>
+                        <span class="hist-msg">${esc(entry.msg)}</span>
                     </div>
                 `);
             });
@@ -6880,10 +6886,10 @@
             const varInfo = elem.varType === 'MW' 
                 ? `${elem.varType}${elem.varNum}` 
                 : `${elem.varType}${elem.varNum}.${elem.varBit}`;
-            const title = elem.label ? `${elem.label} (${varInfo})` : varInfo;
+            const title = elem.label ? `${esc(elem.label)} (${varInfo})` : varInfo;
             
             let svg = `<g class="scene-element-group scene-element ${selectClass} ${activeClass}" data-id="${elem.id}" transform="translate(${x},${y})">`;
-            svg += `<title>🔧 ${title} - Doppio click per configurare</title>`;
+            svg += `<title>🔧 ${esc(title)} - Doppio click per configurare</title>`;
             
             switch (elem.type) {
                 case 'conveyor':
@@ -6927,7 +6933,7 @@
             // Etichetta
             if (elem.label && elem.type !== 'label') {
                 const size = this.getElementSize(elem.type);
-                svg += `<text x="${size.w/2}" y="${size.h + 14}" text-anchor="middle" fill="#9ca3af" font-size="10">${elem.label}</text>`;
+                svg += `<text x="${size.w/2}" y="${size.h + 14}" text-anchor="middle" fill="#9ca3af" font-size="10">${esc(elem.label)}</text>`;
             }
             
             svg += '</g>';
@@ -7083,7 +7089,7 @@
 
         renderLabel: function(elem) {
             return `
-                <text x="0" y="16" fill="${elem.color || '#ecf0f1'}" font-size="14" font-weight="bold">${elem.text || 'Label'}</text>
+                <text x="0" y="16" fill="${elem.color || '#ecf0f1'}" font-size="14" font-weight="bold">${esc(elem.text || 'Label')}</text>
             `;
         },
 
@@ -7196,8 +7202,8 @@
             try {
                 const data = localStorage.getItem('plc_scene_' + Session.id);
                 if (data) {
-                    const parsed = JSON.parse(data);
-                    this.elements = parsed.elements || [];
+                    const parsed = sanitize(JSON.parse(data));
+                    this.elements = Array.isArray(parsed.elements) ? parsed.elements : [];
                     this.elementCounter = parsed.counter || 0;
                     if (this.elements.length > 0) {
                         $('#scene-empty').addClass('hidden');

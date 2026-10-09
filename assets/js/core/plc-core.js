@@ -678,7 +678,73 @@
         return { PLC, LadderEngine };
     }
 
-    const PLCSimCore = { create };
+    // ==================== Dati importati ====================
+    // Programmi JSON, progetti TIA, configurazioni HMI e scene arrivano da
+    // file scelti dall'utente (o scambiati fra studenti) e finiscono in HTML.
+    // sanitizeData lascia come testo solo i campi di testo libero, che vanno
+    // escapati in uscita con escapeHtml; ogni altra stringa deve avere un
+    // formato innocuo (tipi, indirizzi, colori), i campi numerici diventano
+    // numeri e lo sfondo HMI e' accettato solo come immagine data: base64.
+
+    const TEXT_KEYS = ['label', 'name', 'text', 'msg', 'message', 'comment', 'title', 'description', 'unit'];
+    const NUMBER_KEYS = [
+        'byte', 'bit', 'preset', 'timerId', 'counterId', 'x', 'y', 'width', 'height', 'min', 'max',
+        'varNum', 'varBit', 'num', 'pageCounter', 'elementCounter', 'currentPageId', 'bgOpacity',
+        'backgroundOpacity', 'state', 'power', 'inputPower', 'counter'
+    ];
+    const IMAGE_KEYS = ['background', 'backgroundImage'];
+    const SAFE_STRING = /^[\w#.\-: +]*$/;
+    const SAFE_COLOR = /^#?[A-Za-z0-9]+$/;
+    const DATA_IMAGE = /^data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);base64,[A-Za-z0-9+\/=\s]+$/;
+    const NUMBER_STRING = /^\s*-?\d+(\.\d+)?\s*$/;
+
+    function sanitizeValue(key, value) {
+        if (TEXT_KEYS.includes(key)) {
+            return value === null || value === undefined || typeof value === 'object' ? '' : String(value);
+        }
+        if (IMAGE_KEYS.includes(key)) {
+            return typeof value === 'string' && DATA_IMAGE.test(value) ? value : null;
+        }
+        if (NUMBER_KEYS.includes(key)) {
+            if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+            if (typeof value === 'string' && NUMBER_STRING.test(value)) return Number(value);
+            if (typeof value === 'boolean' || value === null) return value;
+            return undefined;
+        }
+        if (typeof value === 'string') {
+            const ok = key === 'color' ? SAFE_COLOR.test(value) : SAFE_STRING.test(value);
+            return ok ? value : undefined;
+        }
+        if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+        if (Array.isArray(value)) return value.map(v => sanitizeValue('', v));
+        if (value && typeof value === 'object') return sanitizeData(value);
+        return value;
+    }
+
+    function sanitizeData(data) {
+        if (Array.isArray(data)) return data.map(v => sanitizeValue('', v));
+        if (!data || typeof data !== 'object') return data;
+        const out = {};
+        Object.keys(data).forEach(key => {
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+            const value = sanitizeValue(key, data[key]);
+            if (value !== undefined) out[key] = value;
+        });
+        return out;
+    }
+
+    // Escape per contenuto e attributi HTML
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    const PLCSimCore = { create, sanitizeData, escapeHtml };
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = PLCSimCore;
