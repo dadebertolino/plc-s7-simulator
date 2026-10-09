@@ -1,3 +1,4 @@
+<?php defined('ABSPATH') || exit; ?>
 <div id="plc-simulator" class="plc-container">
     <!-- Header -->
     <header class="plc-header">
@@ -245,18 +246,6 @@
     <!-- Indicatore selezione multipla -->
     <div id="selection-indicator"></div>
 
-    <!-- Modal Caricamento -->
-    <div id="load-modal" class="plc-modal">
-        <div class="plc-modal-content">
-            <h2>Carica Programma</h2>
-            <div id="programs-list" class="plc-programs-list"></div>
-            <div class="plc-modal-buttons">
-                <button id="btn-load-confirm" class="plc-btn plc-btn-primary" disabled>Carica</button>
-                <button class="plc-btn plc-btn-cancel" onclick="closeModal()">Annulla</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal Configurazione Elemento -->
     <div id="config-modal" class="plc-modal">
         <div class="plc-modal-content">
@@ -290,6 +279,42 @@
                 <span>.</span>
                 <input type="number" id="config-ctud-cd-bit" min="0" max="7" value="1" style="width:50px;">
             </div>
+            <div class="plc-form-group" id="pin-r-config" style="display:none;">
+                <label for="config-pin-r-type">Reset (R):</label>
+                <select id="config-pin-r-type">
+                    <option value="">non collegato</option>
+                    <option value="I">I</option>
+                    <option value="Q">Q</option>
+                    <option value="M">M</option>
+                </select>
+                <input type="number" id="config-pin-r-byte" min="0" max="127" value="0" style="width:50px;" aria-label="Reset (R): byte">
+                <span>.</span>
+                <input type="number" id="config-pin-r-bit" min="0" max="7" value="0" style="width:50px;" aria-label="Reset (R): bit">
+            </div>
+            <div class="plc-form-group" id="pin-ld-config" style="display:none;">
+                <label for="config-pin-ld-type">Carica PV (LD):</label>
+                <select id="config-pin-ld-type">
+                    <option value="">non collegato</option>
+                    <option value="I">I</option>
+                    <option value="Q">Q</option>
+                    <option value="M">M</option>
+                </select>
+                <input type="number" id="config-pin-ld-byte" min="0" max="127" value="0" style="width:50px;" aria-label="Carica PV (LD): byte">
+                <span>.</span>
+                <input type="number" id="config-pin-ld-bit" min="0" max="7" value="0" style="width:50px;" aria-label="Carica PV (LD): bit">
+            </div>
+            <div class="plc-form-group" id="pin-qd-config" style="display:none;">
+                <label for="config-pin-qd-type">Uscita QD:</label>
+                <select id="config-pin-qd-type">
+                    <option value="">non collegato</option>
+                    <option value="I">I</option>
+                    <option value="Q">Q</option>
+                    <option value="M">M</option>
+                </select>
+                <input type="number" id="config-pin-qd-byte" min="0" max="127" value="0" style="width:50px;" aria-label="Uscita QD: byte">
+                <span>.</span>
+                <input type="number" id="config-pin-qd-bit" min="0" max="7" value="0" style="width:50px;" aria-label="Uscita QD: bit">
+            </div>
             <div class="plc-form-group" id="compare-config" style="display:none;">
                 <label>Operando 1:</label>
                 <select id="config-cmp-op1-type">
@@ -297,6 +322,8 @@
                     <option value="counter">Counter CV</option>
                     <option value="timer">Timer ET</option>
                     <option value="MW">Memory Word</option>
+                    <option value="IW">Input Word (IW)</option>
+                    <option value="QW">Output Word (QW)</option>
                 </select>
                 <input type="number" id="config-cmp-op1-value" value="0" style="width:80px;">
                 <br><br>
@@ -306,6 +333,8 @@
                     <option value="counter">Counter CV</option>
                     <option value="timer">Timer ET</option>
                     <option value="MW">Memory Word</option>
+                    <option value="IW">Input Word (IW)</option>
+                    <option value="QW">Output Word (QW)</option>
                 </select>
                 <input type="number" id="config-cmp-op2-value" value="0" style="width:80px;">
             </div>
@@ -413,6 +442,7 @@
                         <span class="summary-value">0 - 27648 (0-10V / 4-20mA)</span>
                     </div>
                 </div>
+                <div id="hw-errors" class="hw-errors" role="alert"></div>
                 <div id="hw-address-map" class="address-map"></div>
             </div>
             
@@ -957,7 +987,7 @@
     <!-- Footer Credits -->
     <footer class="plc-footer">
         <div class="plc-footer-content">
-            <span>© 2026 Davide "the Prof." Bertolino — <a href="https://www.davidebertolino.it" target="_blank">www.davidebertolino.it</a> — <a href="mailto:info@davidebertolino.it">info@davidebertolino.it</a></span>
+            <span>© 2026 Davide "the Prof." Bertolino — <a href="https://www.davidebertolino.it" target="_blank" rel="noopener">www.davidebertolino.it</a> — <a href="mailto:info@davidebertolino.it">info@davidebertolino.it</a></span>
             <span class="plc-footer-version">Control Systems Toolbox v2.7</span>
         </div>
     </footer>

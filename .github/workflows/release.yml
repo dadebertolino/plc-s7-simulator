@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  # Lo ZIP si pubblica solo se il codice passa gli stessi controlli della CI.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build-release:
+    name: "Build ZIP e pubblica Release"
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # L'updater ricava la versione dal tag: se non coincide con quella del plugin,
+      # WordPress continuerebbe a proporre l'aggiornamento anche dopo averlo installato
+      - name: Verifica coerenza versione tag / plugin / README
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          HEADER=$(grep -oP '^\s*\*\s*Version:\s*\K[0-9.]+' plc-s7-simulator.php)
+          CONST=$(grep -oP "define\('PLC_SIM_VERSION',\s*'\K[0-9.]+" plc-s7-simulator.php)
+          README=$(grep -oP '^\*\*Versione:\*\*\s*\K[0-9.]+' README.md)
+          echo "tag=$TAG header=$HEADER const=$CONST readme=$README"
+          if [ "$TAG" != "$HEADER" ] || [ "$TAG" != "$CONST" ] || [ "$TAG" != "$README" ]; then
+            echo "::error::La versione del tag ($TAG) non coincide con quella del plugin (header: $HEADER, PLC_SIM_VERSION: $CONST, README: $README)."
+            exit 1
+          fi
+
+      - name: Verifica voce di changelog
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          if ! grep -q "^### $TAG\$" README.md; then
+            echo "::error::Nel README manca la voce di changelog '### $TAG'."
+            exit 1
+          fi
+
+      # git archive rispetta gli export-ignore di .gitattributes e crea la cartella
+      # radice 'plc-s7-simulator/', quella che WordPress si aspetta (lo zipball di
+      # GitHub avrebbe 'dadebertolino-plc-s7-simulator-<hash>/')
+      - name: Build ZIP
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          git archive --format=zip --prefix=plc-s7-simulator/ \
+            -o "plc-s7-simulator-${GITHUB_REF_NAME#v}.zip" "$GITHUB_REF_NAME"
+          unzip -l "plc-s7-simulator-${GITHUB_REF_NAME#v}.zip"
+
+      # Lo ZIP deve contenere il plugin e niente di sviluppo
+      - name: Verifica contenuto ZIP
+        run: |
+          ZIP="plc-s7-simulator-${VERSION}.zip"
+          for f in plc-s7-simulator.php README.md LICENSE uninstall.php inc/class-updater.php \
+                   assets/js/core/plc-core.js assets/js/simulator.js assets/js/vendor/jszip.min.js \
+                   assets/css/simulator.css templates/simulator.php; do
+            unzip -l "$ZIP" "plc-s7-simulator/$f" > /dev/null || { echo "::error::Manca $f nello ZIP"; exit 1; }
+          done
+          if unzip -l "$ZIP" | grep -E 'plc-s7-simulator/(tests|bin|\.github|node_modules|vendor)/|package(-lock)?\.json|playwright\.config|\.wp-env\.json|composer\.json|phpcs\.xml'; then
+            echo "::error::Lo ZIP contiene file di sviluppo: aggiungerli a .gitattributes (export-ignore)"
+            exit 1
+          fi
+
+      # Descrizione della release: la voce del changelog del README
+      - name: Note di rilascio
+        run: |
+          awk -v v="$VERSION" '$0=="### "v{p=1; print "## "v; next} p&&/^(### [0-9]|---|## )/{exit} p' README.md > release-notes.md
+          cat release-notes.md
+
+      - name: Crea/aggiorna Release con lo ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "WebPicSimulator ${{ env.VERSION }}"
+          files: plc-s7-simulator-*.zip
+          body_path: release-notes.md

@@ -3,122 +3,82 @@
  * Plugin Name: Unofficial S7-1200 Simulator
  * Plugin URI: https://www.davidebertolino.it/progetti/s7-simulator/
  * Description: Simulatore PLC Siemens S7-1200 con editor Ladder, HMI touch e impianti virtuali animati
- * Version: 1.6.9
+ * Version: 1.7.0
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
  * Author: Davide "the Prof." Bertolino
  * Author URI: https://www.davidebertolino.it
- * License: GPL v3 or later
- * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: plc-s7-simulator
+ * Update URI: https://github.com/dadebertolino/plc-s7-simulator
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('PLC_SIM_VERSION', '1.6.9');
+define('PLC_SIM_VERSION', '1.7.0');
 define('PLC_SIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PLC_SIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+/* -------------------------------------------------------------------------
+ * GitHub Auto-Updater (componente condiviso)
+ * ---------------------------------------------------------------------- */
+require_once PLC_SIM_PLUGIN_DIR . 'inc/class-updater.php';
+new DB_GitHub_Updater_V2(__FILE__, 'dadebertolino', 'plc-s7-simulator');
+
 class PLC_S7_Simulator {
-    
+
     private static $instance = null;
-    
+
+    private $assets_done = false;
+
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
         }
         return self::$instance;
     }
-    
+
     private function __construct() {
-        add_action('init', array($this, 'init'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_post_plc_sim_purge_programs', array($this, 'purge_programs'));
         add_shortcode('plc_simulator', array($this, 'render_simulator'));
-        
-        // AJAX actions
-        add_action('wp_ajax_plc_save_program', array($this, 'save_program'));
-        add_action('wp_ajax_nopriv_plc_save_program', array($this, 'save_program'));
-        add_action('wp_ajax_plc_load_program', array($this, 'load_program'));
-        add_action('wp_ajax_nopriv_plc_load_program', array($this, 'load_program'));
-        add_action('wp_ajax_plc_list_programs', array($this, 'list_programs'));
-        add_action('wp_ajax_nopriv_plc_list_programs', array($this, 'list_programs'));
-        add_action('wp_ajax_plc_delete_program', array($this, 'delete_program'));
-        add_action('wp_ajax_nopriv_plc_delete_program', array($this, 'delete_program'));
-        
-        register_activation_hook(__FILE__, array($this, 'activate'));
     }
-    
-    public function init() {
-        load_plugin_textdomain('plc-s7-simulator', false, dirname(plugin_basename(__FILE__)) . '/languages');
-    }
-    
-    public function activate() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'plc_programs';
-        $charset_collate = $wpdb->get_charset_collate();
-        
-        // Tabella con supporto sessioni
-        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            session_id varchar(32) NOT NULL DEFAULT '',
-            name varchar(255) NOT NULL,
-            program longtext NOT NULL,
-            hardware_config longtext,
-            hmi_config longtext,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY session_id (session_id)
-        ) $charset_collate;";
-        
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
-        
-        // Aggiungi colonne se mancanti (per upgrade da versione precedente)
-        $this->maybe_upgrade_table();
-    }
-    
-    private function maybe_upgrade_table() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'plc_programs';
-        
-        // Verifica se esiste colonna session_id
-        $col = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'session_id'");
-        if (empty($col)) {
-            $wpdb->query("ALTER TABLE $table_name ADD COLUMN session_id varchar(32) NOT NULL DEFAULT '' AFTER id");
-            $wpdb->query("ALTER TABLE $table_name ADD INDEX session_id (session_id)");
+
+    /**
+     * Dall'hook wp_enqueue_scripts solo se lo shortcode e' nel contenuto del
+     * post, cosi' il CSS finisce nell'head. Lo shortcode lo richiama con
+     * $force: il controllo sul contenuto non vede lo shortcode in blocchi
+     * riutilizzabili, widget, template FSE e page builder, e li' gli asset
+     * vengono accodati al momento del rendering.
+     */
+    public function enqueue_scripts($force = false) {
+        if ($this->assets_done) {
+            return;
         }
-        
-        // Verifica se esiste colonna hardware_config
-        $col = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'hardware_config'");
-        if (empty($col)) {
-            $wpdb->query("ALTER TABLE $table_name ADD COLUMN hardware_config longtext AFTER program");
+        if (true !== $force) {
+            global $post;
+            if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'plc_simulator')) {
+                return;
+            }
         }
-        
-        // Verifica se esiste colonna hmi_config
-        $col = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'hmi_config'");
-        if (empty($col)) {
-            $wpdb->query("ALTER TABLE $table_name ADD COLUMN hmi_config longtext AFTER hardware_config");
-        }
+        $this->assets_done = true;
+
+        wp_enqueue_style('plc-simulator-style', PLC_SIM_PLUGIN_URL . 'assets/css/simulator.css', array(), PLC_SIM_VERSION);
+
+        // JSZip per import file TIA Portal (.zap), incluso nel plugin
+        wp_enqueue_script('plc-sim-jszip', PLC_SIM_PLUGIN_URL . 'assets/js/vendor/jszip.min.js', array(), '3.10.1', true);
+
+        wp_enqueue_script('plc-sim-core', PLC_SIM_PLUGIN_URL . 'assets/js/core/plc-core.js', array(), PLC_SIM_VERSION, true);
+        wp_enqueue_script('plc-simulator-script', PLC_SIM_PLUGIN_URL . 'assets/js/simulator.js', array('jquery', 'plc-sim-jszip', 'plc-sim-core'), PLC_SIM_VERSION, true);
+        wp_localize_script('plc-simulator-script', 'plcSimConfig', array(
+            'version' => PLC_SIM_VERSION,
+        ));
     }
-    
-    public function enqueue_scripts() {
-        global $post;
-        if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'plc_simulator')) {
-            wp_enqueue_style('plc-simulator-style', PLC_SIM_PLUGIN_URL . 'assets/css/simulator.css', array(), PLC_SIM_VERSION);
-            
-            // JSZip per import file TIA Portal (.zap)
-            wp_enqueue_script('jszip', 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', array(), '3.10.1', true);
-            
-            wp_enqueue_script('plc-simulator-script', PLC_SIM_PLUGIN_URL . 'assets/js/simulator.js', array('jquery', 'jszip'), PLC_SIM_VERSION, true);
-            wp_localize_script('plc-simulator-script', 'plcAjax', array(
-                'ajaxurl' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('plc_simulator_nonce')
-            ));
-        }
-    }
-    
+
     public function add_admin_menu() {
         add_menu_page(
             'Unofficial S7/1200 Simulator',
@@ -130,178 +90,88 @@ class PLC_S7_Simulator {
             30
         );
     }
-    
+
+    private function programs_table() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'plc_programs';
+        return $table_name === $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))) ? $table_name : '';
+    }
+
     public function admin_page() {
+        global $wpdb;
+        $table_name = $this->programs_table();
         ?>
         <div class="wrap">
             <h1>Unofficial S7/1200 Simulator by Prof D.Bertolino</h1>
             <p>Usa lo shortcode <code>[plc_simulator]</code> per inserire il simulatore in una pagina.</p>
-            
-            <h2>Sessioni Attive</h2>
+            <p>I programmi si salvano e si caricano come file JSON sul computer dello studente: il simulatore non invia dati al server.</p>
+
+            <?php if (isset($_GET['purged'])) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- solo messaggio dopo il redirect ?>
+                <div class="notice notice-success is-dismissible"><p>Programmi salvati dalle versioni precedenti eliminati.</p></div>
+            <?php endif; ?>
+
             <?php
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'plc_programs';
-            
-            // Raggruppa per sessione
-            $sessions = $wpdb->get_results("
-                SELECT session_id, COUNT(*) as program_count, MAX(updated_at) as last_activity 
-                FROM $table_name 
-                WHERE session_id != '' 
-                GROUP BY session_id 
-                ORDER BY last_activity DESC
-                LIMIT 50
-            ");
-            
-            if ($sessions) {
-                echo '<table class="wp-list-table widefat fixed striped">';
-                echo '<thead><tr><th>Session ID</th><th>Programmi</th><th>Ultima Attivita</th></tr></thead><tbody>';
-                foreach ($sessions as $sess) {
-                    $short_id = substr($sess->session_id, 0, 8) . '...';
-                    echo "<tr><td><code>{$short_id}</code></td><td>{$sess->program_count}</td><td>{$sess->last_activity}</td></tr>";
+            if ($table_name) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nome tabella dal prefisso di WordPress
+                $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+                if ($count > 0) {
+                    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nome tabella dal prefisso di WordPress
+                    $programs = $wpdb->get_results("SELECT id, name, updated_at FROM {$table_name} ORDER BY updated_at DESC LIMIT 100");
+                    ?>
+                    <h2>Programmi salvati dalle versioni precedenti</h2>
+                    <p>
+                        Fino alla 1.6.9 ogni salvataggio veniva copiato anche nel database del sito,
+                        ma gli studenti non potevano piu' recuperarlo da li'.
+                        Nel database ci sono <?php echo esc_html(number_format_i18n($count)); ?> programmi:
+                        puoi eliminarli, oppure li elimina la disinstallazione del plugin.
+                    </p>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead><tr><th>ID</th><th>Nome</th><th>Ultimo aggiornamento</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($programs as $prog) : ?>
+                            <tr>
+                                <td><?php echo esc_html($prog->id); ?></td>
+                                <td><?php echo esc_html($prog->name); ?></td>
+                                <td><?php echo esc_html($prog->updated_at); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:1em">
+                        <input type="hidden" name="action" value="plc_sim_purge_programs">
+                        <?php wp_nonce_field('plc_sim_purge_programs'); ?>
+                        <?php submit_button('Elimina tutti i programmi salvati', 'delete', 'submit', false, array('onclick' => "return confirm('Eliminare definitivamente tutti i programmi salvati nel database?');")); ?>
+                    </form>
+                    <?php
                 }
-                echo '</tbody></table>';
-            } else {
-                echo '<p>Nessuna sessione attiva.</p>';
-            }
-            ?>
-            
-            <h2>Tutti i Programmi</h2>
-            <?php
-            $programs = $wpdb->get_results("SELECT id, session_id, name, updated_at FROM $table_name ORDER BY updated_at DESC LIMIT 100");
-            if ($programs) {
-                echo '<table class="wp-list-table widefat fixed striped">';
-                echo '<thead><tr><th>ID</th><th>Sessione</th><th>Nome</th><th>Ultimo Aggiornamento</th></tr></thead><tbody>';
-                foreach ($programs as $prog) {
-                    $short_sess = $prog->session_id ? substr($prog->session_id, 0, 8) . '...' : '<em>nessuna</em>';
-                    echo "<tr><td>{$prog->id}</td><td><code>{$short_sess}</code></td><td>{$prog->name}</td><td>{$prog->updated_at}</td></tr>";
-                }
-                echo '</tbody></table>';
-            } else {
-                echo '<p>Nessun programma salvato.</p>';
             }
             ?>
         </div>
         <?php
     }
-    
-    public function render_simulator($atts) {
+
+    public function purge_programs() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Non hai i permessi per questa azione.', 'plc-s7-simulator'), 403);
+        }
+        check_admin_referer('plc_sim_purge_programs');
+
+        $table_name = $this->programs_table();
+        if ($table_name) {
+            global $wpdb;
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange -- tabella del plugin, nome dal prefisso di WordPress
+            $wpdb->query("DROP TABLE IF EXISTS {$table_name}");
+        }
+
+        wp_safe_redirect(add_query_arg(array('page' => 'plc-simulator', 'purged' => 1), admin_url('admin.php')));
+        exit;
+    }
+
+    public function render_simulator() {
+        $this->enqueue_scripts(true);
         ob_start();
         include PLC_SIM_PLUGIN_DIR . 'templates/simulator.php';
         return ob_get_clean();
-    }
-    
-    public function save_program() {
-        check_ajax_referer('plc_simulator_nonce', 'nonce');
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'plc_programs';
-        
-        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
-        $name = sanitize_text_field($_POST['name']);
-        $program = wp_unslash($_POST['program']);
-        $hardware_config = isset($_POST['hardware_config']) ? wp_unslash($_POST['hardware_config']) : '';
-        $hmi_config = isset($_POST['hmi_config']) ? wp_unslash($_POST['hmi_config']) : '';
-        $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
-        
-        if ($id > 0) {
-            // Verifica che il programma appartenga alla sessione
-            $existing = $wpdb->get_var($wpdb->prepare(
-                "SELECT session_id FROM $table_name WHERE id = %d", $id
-            ));
-            
-            if ($existing !== $session_id && $existing !== '') {
-                wp_send_json_error('Non autorizzato a modificare questo programma');
-                return;
-            }
-            
-            $wpdb->update($table_name, 
-                array(
-                    'name' => $name, 
-                    'program' => $program,
-                    'hardware_config' => $hardware_config,
-                    'hmi_config' => $hmi_config
-                ),
-                array('id' => $id)
-            );
-        } else {
-            $wpdb->insert($table_name, array(
-                'session_id' => $session_id,
-                'name' => $name,
-                'program' => $program,
-                'hardware_config' => $hardware_config,
-                'hmi_config' => $hmi_config
-            ));
-            $id = $wpdb->insert_id;
-        }
-        
-        wp_send_json_success(array('id' => $id, 'message' => 'Programma salvato'));
-    }
-    
-    public function load_program() {
-        check_ajax_referer('plc_simulator_nonce', 'nonce');
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'plc_programs';
-        $id = intval($_POST['id']);
-        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
-        
-        $program = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $id));
-        
-        if ($program) {
-            // Verifica accesso: stesso session_id o programma senza sessione
-            if ($program->session_id !== '' && $program->session_id !== $session_id) {
-                wp_send_json_error('Non autorizzato ad accedere a questo programma');
-                return;
-            }
-            wp_send_json_success($program);
-        } else {
-            wp_send_json_error('Programma non trovato');
-        }
-    }
-    
-    public function list_programs() {
-        check_ajax_referer('plc_simulator_nonce', 'nonce');
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'plc_programs';
-        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
-        
-        // Mostra solo programmi della sessione corrente
-        if ($session_id) {
-            $programs = $wpdb->get_results($wpdb->prepare(
-                "SELECT id, name, updated_at FROM $table_name WHERE session_id = %s ORDER BY updated_at DESC",
-                $session_id
-            ));
-        } else {
-            // Nessuna sessione: mostra solo programmi senza sessione (legacy)
-            $programs = $wpdb->get_results(
-                "SELECT id, name, updated_at FROM $table_name WHERE session_id = '' ORDER BY updated_at DESC"
-            );
-        }
-        
-        wp_send_json_success($programs);
-    }
-    
-    public function delete_program() {
-        check_ajax_referer('plc_simulator_nonce', 'nonce');
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'plc_programs';
-        $id = intval($_POST['id']);
-        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
-        
-        // Verifica che il programma appartenga alla sessione
-        $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT session_id FROM $table_name WHERE id = %d", $id
-        ));
-        
-        if ($existing !== $session_id && $existing !== '') {
-            wp_send_json_error('Non autorizzato a eliminare questo programma');
-            return;
-        }
-        
-        $wpdb->delete($table_name, array('id' => $id));
-        wp_send_json_success(array('message' => 'Programma eliminato'));
     }
 }
 

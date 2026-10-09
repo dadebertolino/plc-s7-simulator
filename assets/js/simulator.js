@@ -17,15 +17,16 @@
                 this.id = this.generateSessionId();
                 localStorage.setItem('plc_session_id', this.id);
             }
-            console.log('Session ID:', this.id);
         },
         
         generateSessionId: function() {
-            // ID univoco: timestamp + random
+            // ID univoco del browser (chiave della scena in localStorage)
             const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            const bytes = new Uint8Array(16);
+            window.crypto.getRandomValues(bytes);
             let id = '';
             for (let i = 0; i < 16; i++) {
-                id += chars.charAt(Math.floor(Math.random() * chars.length));
+                id += chars.charAt(bytes[i] % chars.length);
             }
             return id;
         },
@@ -35,605 +36,12 @@
         }
     };
 
-    // ==================== PLC Memory Model ====================
-    const PLC = {
-        // ==================== Hardware Configuration ====================
-        hardware: {
-            // Modelli CPU disponibili
-            cpuModels: {
-                // CPU 1211C
-                '1211C-DC': { name: 'CPU 1211C DC/DC/DC', di: 6, dq: 4, ai: 2, aq: 0, aiStart: 64 },
-                '1211C-AC': { name: 'CPU 1211C AC/DC/Relay', di: 6, dq: 4, ai: 2, aq: 0, aiStart: 64 },
-                // CPU 1212C
-                '1212C-DC': { name: 'CPU 1212C DC/DC/DC', di: 8, dq: 6, ai: 2, aq: 0, aiStart: 64 },
-                '1212C-AC': { name: 'CPU 1212C AC/DC/Relay', di: 8, dq: 6, ai: 2, aq: 0, aiStart: 64 },
-                // CPU 1214C
-                '1214C-DC': { name: 'CPU 1214C DC/DC/DC', di: 14, dq: 10, ai: 2, aq: 0, aiStart: 64 },
-                '1214C-AC': { name: 'CPU 1214C AC/DC/Relay', di: 14, dq: 10, ai: 2, aq: 0, aiStart: 64 },
-                // CPU 1215C
-                '1215C-DC': { name: 'CPU 1215C DC/DC/DC', di: 14, dq: 10, ai: 2, aq: 2, aiStart: 64, aqStart: 64 },
-                '1215C-AC': { name: 'CPU 1215C AC/DC/Relay', di: 14, dq: 10, ai: 2, aq: 2, aiStart: 64, aqStart: 64 },
-                // CPU 1217C
-                '1217C-DC': { name: 'CPU 1217C DC/DC/DC', di: 14, dq: 10, ai: 2, aq: 2, aiStart: 64, aqStart: 64 }
-            },
-            // Espansioni disponibili
-            expansions: {
-                'SM1221-8DI': { name: 'SM 1221 DI x8', di: 8, dq: 0, ai: 0, aq: 0 },
-                'SM1221-16DI': { name: 'SM 1221 DI x16', di: 16, dq: 0, ai: 0, aq: 0 },
-                'SM1222-8DQ': { name: 'SM 1222 DQ x8', di: 0, dq: 8, ai: 0, aq: 0 },
-                'SM1222-8DQR': { name: 'SM 1222 DQ x8 Relay', di: 0, dq: 8, ai: 0, aq: 0 },
-                'SM1223-8DI8DQ': { name: 'SM 1223 DI x8 / DQ x8', di: 8, dq: 8, ai: 0, aq: 0 },
-                'SM1231-4AI': { name: 'SM 1231 AI x4', di: 0, dq: 0, ai: 4, aq: 0 },
-                'SM1231-8AI': { name: 'SM 1231 AI x8', di: 0, dq: 0, ai: 8, aq: 0 },
-                'SM1232-2AQ': { name: 'SM 1232 AQ x2', di: 0, dq: 0, ai: 0, aq: 2 },
-                'SM1232-4AQ': { name: 'SM 1232 AQ x4', di: 0, dq: 0, ai: 0, aq: 4 },
-                'SM1234-4AI2AQ': { name: 'SM 1234 AI x4 / AQ x2', di: 0, dq: 0, ai: 4, aq: 2 },
-                'SB1221-4DI': { name: 'SB 1221 DI x4', di: 4, dq: 0, ai: 0, aq: 0 },
-                'SB1222-4DQ': { name: 'SB 1222 DQ x4', di: 0, dq: 4, ai: 0, aq: 0 },
-                'SB1223-2DI2DQ': { name: 'SB 1223 DI x2 / DQ x2', di: 2, dq: 2, ai: 0, aq: 0 },
-                'SB1231-1AI': { name: 'SB 1231 AI x1', di: 0, dq: 0, ai: 1, aq: 0 },
-                'SB1232-1AQ': { name: 'SB 1232 AQ x1', di: 0, dq: 0, ai: 0, aq: 1 }
-            },
-            // Configurazione corrente
-            currentCPU: '1215C-AC',
-            installedExpansions: [],
-            // Range analogico S7-1200 (0-10V / 4-20mA unipolare)
-            analogRange: { min: 0, max: 27648 }
-        },
-        
-        // I/O Digitali
-        I: new Array(16).fill(0),  // Ingressi: I0.0-I1.7
-        Q: new Array(16).fill(0),  // Uscite: Q0.0-Q1.7
-        M: new Array(32).fill(0),  // Merker: M0.0-M3.7
-        MW: new Array(256).fill(0), // Memory Words
-        
-        // I/O Analogici (Word)
-        IW: new Array(128).fill(0),  // Input Word (AIW): IW64, IW66, IW96...
-        QW: new Array(128).fill(0),  // Output Word (AQW): QW64, QW66...
-        
-        // Timers
-        timers: {},
-        
-        // Counters
-        counters: {},
-        
-        // Edge detection memory
-        edges: {},
-        
-        // Stato simulazione
-        running: false,
-        scanTime: 50, // ms
-        scanInterval: null,
-        
-        // Programma Ladder
-        program: {
-            name: 'Main [OB1]',
-            rungs: []
-        },
-        
-        // ==================== Hardware Functions ====================
-        
-        // Calcola I/O totali in base a configurazione
-        getAnalogConfig: function() {
-            const cpu = this.hardware.cpuModels[this.hardware.currentCPU];
-            let totalAI = cpu.ai;
-            let totalAQ = cpu.aq;
-            let aiAddresses = [];
-            let aqAddresses = [];
-            
-            // AI integrati CPU (IW64, IW66 tipicamente)
-            for (let i = 0; i < cpu.ai; i++) {
-                aiAddresses.push(cpu.aiStart + (i * 2));
-            }
-            
-            // AQ integrati CPU (se presenti)
-            if (cpu.aq > 0) {
-                for (let i = 0; i < cpu.aq; i++) {
-                    aqAddresses.push(cpu.aqStart + (i * 2));
-                }
-            }
-            
-            // Espansioni (partono da IW96/QW96)
-            let expAIStart = 96;
-            let expAQStart = 96;
-            
-            this.hardware.installedExpansions.forEach(expId => {
-                const exp = this.hardware.expansions[expId];
-                if (exp) {
-                    for (let i = 0; i < exp.ai; i++) {
-                        aiAddresses.push(expAIStart + (i * 2));
-                    }
-                    expAIStart += exp.ai * 2;
-                    totalAI += exp.ai;
-                    
-                    for (let i = 0; i < exp.aq; i++) {
-                        aqAddresses.push(expAQStart + (i * 2));
-                    }
-                    expAQStart += exp.aq * 2;
-                    totalAQ += exp.aq;
-                }
-            });
-            
-            return { totalAI, totalAQ, aiAddresses, aqAddresses };
-        },
-
-        // Leggi bit
-        readBit: function(type, byte, bit) {
-            const arr = this[type];
-            if (!arr) return 0;
-            const index = byte * 8 + bit;
-            return arr[index] || 0;
-        },
-
-        // Scrivi bit
-        writeBit: function(type, byte, bit, value) {
-            const arr = this[type];
-            if (!arr) return;
-            const index = byte * 8 + bit;
-            arr[index] = value ? 1 : 0;
-        },
-
-        // Toggle bit (per ingressi)
-        toggleBit: function(type, byte, bit) {
-            const current = this.readBit(type, byte, bit);
-            this.writeBit(type, byte, bit, current ? 0 : 1);
-        },
-        
-        // ==================== Word Functions (Analog I/O) ====================
-        
-        // Leggi word (16 bit) - per I/O analogici
-        readWord: function(type, address) {
-            // type: 'IW' per Input Word, 'QW' per Output Word, 'MW' per Memory Word
-            const arr = this[type];
-            if (!arr) return 0;
-            return arr[address] || 0;
-        },
-        
-        // Scrivi word (16 bit)
-        writeWord: function(type, address, value) {
-            const arr = this[type];
-            if (!arr) return;
-            // Clamp a range 16-bit signed (-32768 to 32767) o unsigned (0 to 65535)
-            const range = this.hardware.analogRange;
-            arr[address] = Math.max(range.min, Math.min(range.max, Math.round(value)));
-        },
-        
-        // Converti valore analogico in unità ingegneristiche
-        // es: AIW 0-27648 -> 0-100% o 0-10V o 4-20mA
-        analogToEngineering: function(rawValue, engMin, engMax) {
-            const norm = this.NORM_X(rawValue, this.hardware.analogRange.min, this.hardware.analogRange.max);
-            return this.SCALE_X(norm, engMin, engMax);
-        },
-        
-        // Converti unità ingegneristiche in valore analogico
-        engineeringToAnalog: function(engValue, engMin, engMax) {
-            const norm = this.NORM_X(engValue, engMin, engMax);
-            return this.SCALE_X(norm, this.hardware.analogRange.min, this.hardware.analogRange.max);
-        },
-
-        // Reset memoria
-        reset: function() {
-            this.I.fill(0);
-            this.Q.fill(0);
-            this.M.fill(0);
-            this.MW.fill(0);
-            this.IW.fill(0);
-            this.QW.fill(0);
-            this.edges = {};
-            Object.keys(this.timers).forEach(k => {
-                this.timers[k].ET = 0;
-                this.timers[k].Q = 0;
-                this.timers[k].running = false;
-            });
-            Object.keys(this.counters).forEach(k => {
-                this.counters[k].CV = 0;
-                this.counters[k].Q = 0;
-                this.counters[k].lastCU = 0;
-                this.counters[k].lastCD = 0;
-            });
-        },
-
-        // Timer TON
-        timerTON: function(id, IN, PT) {
-            if (!this.timers[id]) {
-                this.timers[id] = { ET: 0, Q: 0, PT: PT, running: false, lastTime: 0 };
-            }
-            const t = this.timers[id];
-            t.PT = PT;
-            
-            if (IN) {
-                if (!t.running) {
-                    t.running = true;
-                    t.lastTime = Date.now();
-                }
-                const elapsed = Date.now() - t.lastTime;
-                t.ET = Math.min(t.ET + elapsed, t.PT);
-                t.lastTime = Date.now();
-                t.Q = t.ET >= t.PT ? 1 : 0;
-            } else {
-                t.ET = 0;
-                t.Q = 0;
-                t.running = false;
-            }
-            return t.Q;
-        },
-
-        // Timer TOF (Off-Delay Timer)
-        // Q rimane ON finche IN e ON, poi ritarda lo spegnimento di PT ms
-        timerTOF: function(id, IN, PT) {
-            if (!this.timers[id]) {
-                this.timers[id] = { ET: 0, Q: 0, PT: PT, running: false, lastTime: 0, wasON: false };
-            }
-            const t = this.timers[id];
-            t.PT = PT;
-            
-            if (IN) {
-                // Input ON: output ON, reset timer
-                t.ET = 0;
-                t.Q = 1;
-                t.wasON = true;
-                t.running = false;
-            } else if (t.wasON) {
-                // Input OFF ma era ON: avvia conteggio ritardo
-                if (!t.running) {
-                    t.running = true;
-                    t.lastTime = Date.now();
-                }
-                const elapsed = Date.now() - t.lastTime;
-                t.ET = Math.min(t.ET + elapsed, t.PT);
-                t.lastTime = Date.now();
-                
-                // Output resta ON durante il ritardo
-                t.Q = 1;
-                
-                if (t.ET >= t.PT) {
-                    // Tempo scaduto: spegni output
-                    t.Q = 0;
-                    t.wasON = false;
-                    t.running = false;
-                }
-            } else {
-                // Mai stato ON o gia scaduto: output OFF
-                t.Q = 0;
-                t.ET = 0;
-            }
-            return t.Q;
-        },
-
-        // Counter CTU
-        counterCTU: function(id, CU, R, PV) {
-            if (!this.counters[id]) {
-                this.counters[id] = { CV: 0, Q: 0, PV: PV, lastCU: 0, lastCD: 0 };
-            }
-            const c = this.counters[id];
-            c.PV = PV;
-            
-            if (R) {
-                c.CV = 0;
-            } else if (CU && !c.lastCU) {
-                c.CV = Math.min(c.CV + 1, 32767);
-            }
-            c.lastCU = CU;
-            c.Q = c.CV >= c.PV ? 1 : 0;
-            return c.Q;
-        },
-
-        // Timer TP (Pulse Timer)
-        // Genera un impulso di durata PT quando IN passa da 0 a 1
-        timerTP: function(id, IN, PT) {
-            if (!this.timers[id]) {
-                this.timers[id] = { ET: 0, Q: 0, PT: PT, running: false, lastTime: 0, lastIN: 0 };
-            }
-            const t = this.timers[id];
-            t.PT = PT;
-            
-            // Rileva fronte di salita
-            if (IN && !t.lastIN && !t.running) {
-                t.running = true;
-                t.lastTime = Date.now();
-                t.ET = 0;
-                t.Q = 1;
-            }
-            
-            if (t.running) {
-                const elapsed = Date.now() - t.lastTime;
-                t.ET = Math.min(t.ET + elapsed, t.PT);
-                t.lastTime = Date.now();
-                
-                if (t.ET >= t.PT) {
-                    t.Q = 0;
-                    t.running = false;
-                }
-            }
-            
-            t.lastIN = IN;
-            return t.Q;
-        },
-
-        // Counter CTD (Count Down)
-        counterCTD: function(id, CD, LD, PV) {
-            if (!this.counters[id]) {
-                this.counters[id] = { CV: PV, Q: 0, PV: PV, lastCD: 0, lastCU: 0 };
-            }
-            const c = this.counters[id];
-            c.PV = PV;
-            
-            if (LD) {
-                c.CV = c.PV;
-            } else if (CD && !c.lastCD && c.CV > 0) {
-                c.CV = c.CV - 1;
-            }
-            c.lastCD = CD;
-            c.Q = c.CV <= 0 ? 1 : 0;
-            return c.Q;
-        },
-
-        // Counter CTUD (Count Up/Down)
-        counterCTUD: function(id, CU, CD, R, LD, PV) {
-            if (!this.counters[id]) {
-                this.counters[id] = { CV: 0, QU: 0, QD: 0, PV: PV, lastCU: 0, lastCD: 0 };
-            }
-            const c = this.counters[id];
-            c.PV = PV;
-            
-            if (R) {
-                c.CV = 0;
-            } else if (LD) {
-                c.CV = c.PV;
-            } else {
-                if (CU && !c.lastCU) {
-                    c.CV = Math.min(c.CV + 1, 32767);
-                }
-                if (CD && !c.lastCD && c.CV > 0) {
-                    c.CV = c.CV - 1;
-                }
-            }
-            c.lastCU = CU;
-            c.lastCD = CD;
-            c.QU = c.CV >= c.PV ? 1 : 0;
-            c.QD = c.CV <= 0 ? 1 : 0;
-            c.Q = c.QU; // Default output e QU
-            return c.Q;
-        },
-
-        // Edge detection - Positive (Rising edge)
-        edgeP: function(id, IN) {
-            if (this.edges[id] === undefined) {
-                this.edges[id] = 0;
-            }
-            const result = (IN && !this.edges[id]) ? 1 : 0;
-            this.edges[id] = IN;
-            return result;
-        },
-
-        // Edge detection - Negative (Falling edge)
-        edgeN: function(id, IN) {
-            if (this.edges[id] === undefined) {
-                this.edges[id] = 0;
-            }
-            const result = (!IN && this.edges[id]) ? 1 : 0;
-            this.edges[id] = IN;
-            return result;
-        },
-
-        // Ottieni valore operando per comparatori
-        getOperandValue: function(op) {
-            if (!op) return 0;
-            switch (op.type) {
-                case 'const':
-                    return parseInt(op.value) || 0;
-                case 'counter':
-                    const cid = 'C' + (op.value || 0);
-                    return this.counters[cid] ? this.counters[cid].CV : 0;
-                case 'timer':
-                    const tid = 'T' + (op.value || 0);
-                    return this.timers[tid] ? this.timers[tid].ET : 0;
-                case 'MW':
-                    return this.MW[parseInt(op.value) || 0] || 0;
-                default:
-                    return 0;
-            }
-        },
-
-        // Comparatori
-        compare: function(op, val1, val2) {
-            switch (op) {
-                case 'eq': return val1 === val2 ? 1 : 0;
-                case 'ne': return val1 !== val2 ? 1 : 0;
-                case 'gt': return val1 > val2 ? 1 : 0;
-                case 'lt': return val1 < val2 ? 1 : 0;
-                case 'ge': return val1 >= val2 ? 1 : 0;
-                case 'le': return val1 <= val2 ? 1 : 0;
-                default: return 0;
-            }
-        },
-        
-        // ==================== Analog Functions (NORM_X / SCALE_X) ====================
-        
-        // NORM_X: Normalizza valore da range [min,max] a [0.0, 1.0]
-        // Come in TIA Portal: OUT = (VALUE - MIN) / (MAX - MIN)
-        NORM_X: function(value, min, max) {
-            if (max === min) return 0; // Evita divisione per zero
-            const result = (value - min) / (max - min);
-            return Math.max(0, Math.min(1, result)); // Clamp a 0-1
-        },
-        
-        // SCALE_X: Scala valore normalizzato [0.0, 1.0] a range [min, max]
-        // Come in TIA Portal: OUT = MIN + (VALUE * (MAX - MIN))
-        SCALE_X: function(normalizedValue, min, max) {
-            const result = min + (normalizedValue * (max - min));
-            return Math.max(min, Math.min(max, result)); // Clamp al range
-        },
-        
-        // Combinazione NORM + SCALE per conversione diretta tra range
-        // Converte da [inMin, inMax] a [outMin, outMax]
-        SCALE_RANGE: function(value, inMin, inMax, outMin, outMax) {
-            const normalized = this.NORM_X(value, inMin, inMax);
-            return this.SCALE_X(normalized, outMin, outMax);
-        }
-    };
-
-    // ==================== Ladder Engine ====================
-    const LadderEngine = {
-        // Esegui programma
-        execute: function() {
-            if (!PLC.running) return;
-            
-            PLC.program.rungs.forEach((rung, idx) => {
-                this.executeRung(rung, idx);
-            });
-            
-            UI.updateDisplay();
-        },
-
-        // Esegui singolo rung
-        executeRung: function(rung, rungIdx) {
-            // Inizializza se necessario (compatibilita)
-            if (!rung.inputs) rung.inputs = rung.elements || [];
-            if (!rung.outputs) rung.outputs = [];
-            
-            // Valuta inputs (condizioni)
-            let power = this.evaluateBranch(rung.inputs, rung);
-            rung.inputPower = power;
-            
-            // Valuta outputs (azioni) - ricevono il power dagli inputs
-            this.evaluateBranch(rung.outputs, rung, power);
-            
-            rung.power = power;
-        },
-
-        // Valuta branch/serie di elementi (supporta annidamento)
-        evaluateBranch: function(elements, rung, initialPower) {
-            let power = initialPower !== undefined ? initialPower : 1;
-            
-            for (let i = 0; i < elements.length; i++) {
-                const elem = elements[i];
-                
-                if (elem.type === 'branch') {
-                    // Parallelo - OR tra le linee (ricorsivo per sub-branch)
-                    let branchPower = 0;
-                    elem.lines.forEach(line => {
-                        const linePower = this.evaluateBranch(line, rung, power);
-                        branchPower = branchPower || linePower;
-                    });
-                    elem.state = branchPower;
-                    power = branchPower;
-                } else {
-                    power = this.evaluateElement(elem, power);
-                    elem.state = power;
-                }
-            }
-            
-            return power;
-        },
-
-        // Valuta singolo elemento
-        evaluateElement: function(elem, inputPower) {
-            const addr = elem.address || {};
-            const type = addr.type || 'M';
-            const byte = addr.byte || 0;
-            const bit = addr.bit || 0;
-            
-            switch (elem.type) {
-                case 'contact-no':
-                    return inputPower && PLC.readBit(type, byte, bit);
-                    
-                case 'contact-nc':
-                    return inputPower && !PLC.readBit(type, byte, bit);
-                
-                case 'contact-p': {
-                    // Positive edge (fronte di salita)
-                    const edgeId = `P_${type}${byte}.${bit}`;
-                    const currentVal = inputPower && PLC.readBit(type, byte, bit);
-                    return PLC.edgeP(edgeId, currentVal);
-                }
-                
-                case 'contact-n': {
-                    // Negative edge (fronte di discesa)
-                    const edgeId = `N_${type}${byte}.${bit}`;
-                    const currentVal = inputPower && PLC.readBit(type, byte, bit);
-                    return PLC.edgeN(edgeId, currentVal);
-                }
-                    
-                case 'coil':
-                    PLC.writeBit(type, byte, bit, inputPower);
-                    return inputPower;
-                    
-                case 'coil-set':
-                    if (inputPower) PLC.writeBit(type, byte, bit, 1);
-                    return inputPower;
-                    
-                case 'coil-reset':
-                    if (inputPower) PLC.writeBit(type, byte, bit, 0);
-                    return inputPower;
-                    
-                case 'timer-ton': {
-                    const timerId = `T${elem.timerId || 0}`;
-                    const preset = elem.preset || 1000;
-                    const result = PLC.timerTON(timerId, inputPower, preset);
-                    return result;
-                }
-                    
-                case 'timer-tof': {
-                    const timerId = `T${elem.timerId || 0}`;
-                    const preset = elem.preset || 1000;
-                    const result = PLC.timerTOF(timerId, inputPower, preset);
-                    return result;
-                }
-                
-                case 'timer-tp': {
-                    const timerId = `T${elem.timerId || 0}`;
-                    const preset = elem.preset || 1000;
-                    const result = PLC.timerTP(timerId, inputPower, preset);
-                    return result;
-                }
-                    
-                case 'counter-ctu': {
-                    const counterId = `C${elem.counterId || 0}`;
-                    const preset = elem.preset || 10;
-                    const reset = elem.resetAddr ? PLC.readBit(elem.resetAddr.type, elem.resetAddr.byte, elem.resetAddr.bit) : 0;
-                    const result = PLC.counterCTU(counterId, inputPower, reset, preset);
-                    return result;
-                }
-                
-                case 'counter-ctd': {
-                    const counterId = `C${elem.counterId || 0}`;
-                    const preset = elem.preset || 10;
-                    const load = elem.loadAddr ? PLC.readBit(elem.loadAddr.type, elem.loadAddr.byte, elem.loadAddr.bit) : 0;
-                    const result = PLC.counterCTD(counterId, inputPower, load, preset);
-                    return result;
-                }
-                
-                case 'counter-ctud': {
-                    const counterId = `C${elem.counterId || 0}`;
-                    const preset = elem.preset || 10;
-                    const cdAddr = elem.cdAddr || {};
-                    const cd = cdAddr.type ? PLC.readBit(cdAddr.type, cdAddr.byte || 0, cdAddr.bit || 0) : 0;
-                    const reset = elem.resetAddr ? PLC.readBit(elem.resetAddr.type, elem.resetAddr.byte, elem.resetAddr.bit) : 0;
-                    const load = elem.loadAddr ? PLC.readBit(elem.loadAddr.type, elem.loadAddr.byte, elem.loadAddr.bit) : 0;
-                    const result = PLC.counterCTUD(counterId, inputPower, cd, reset, load, preset);
-                    return result;
-                }
-                
-                // Comparatori
-                case 'cmp-eq':
-                case 'cmp-ne':
-                case 'cmp-gt':
-                case 'cmp-lt':
-                case 'cmp-ge':
-                case 'cmp-le': {
-                    if (!inputPower) return 0;
-                    const op = elem.type.replace('cmp-', '');
-                    const val1 = PLC.getOperandValue(elem.operand1);
-                    const val2 = PLC.getOperandValue(elem.operand2);
-                    return PLC.compare(op, val1, val2);
-                }
-                    
-                default:
-                    return inputPower;
-            }
-        }
-    };
+    // Motore PLC e Ladder (assets/js/core/plc-core.js)
+    const { PLC, LadderEngine } = window.PLCSimCore.create();
+    
+    // Dati importati: filtro all'ingresso, escape in uscita per il testo libero
+    const sanitize = window.PLCSimCore.sanitizeData;
+    const esc = window.PLCSimCore.escapeHtml;
 
     // ==================== History Manager (Undo/Redo) ====================
     const History = {
@@ -816,29 +224,6 @@
                 e.stopPropagation();
             });
             
-            // Event handlers per modal caricamento (event delegation)
-            $('#programs-list').on('click', '.program-item', function(e) {
-                e.stopPropagation();
-                $('.program-item').removeClass('selected');
-                $(this).addClass('selected');
-                UI.selectedProgramId = $(this).data('id');
-                $('#btn-load-confirm').prop('disabled', false);
-                console.log('Selezionato programma ID:', UI.selectedProgramId);
-            });
-            
-            $('#programs-list').on('dblclick', '.program-item', function(e) {
-                e.stopPropagation();
-                const id = $(this).data('id');
-                console.log('Doppio click, carico programma ID:', id);
-                UI.loadProgram(id);
-            });
-            
-            $('#btn-load-confirm').on('click', function() {
-                console.log('Click Carica, ID:', UI.selectedProgramId);
-                if (UI.selectedProgramId) {
-                    UI.loadProgram(UI.selectedProgramId);
-                }
-            });
         },
         
         // ==================== Panel Collapse & RUN/STOP Mode ====================
@@ -1271,47 +656,29 @@
 
         // Crea griglia I/O
         createIOGrid: function() {
-            // Ingressi
-            const inputsGrid = $('#inputs-grid');
-            for (let byte = 0; byte < 2; byte++) {
-                for (let bit = 0; bit < 8; bit++) {
-                    inputsGrid.append(`
-                        <div class="io-bit input-bit" data-type="I" data-byte="${byte}" data-bit="${bit}">
-                            <span class="io-bit-label">I${byte}.${bit}</span>
+            const cfg = PLC.getIOConfig();
+            const bitHtml = (cls, type, c) => `
+                        <div class="io-bit ${cls}" data-type="${type}" data-byte="${c.byte}" data-bit="${c.bit}" title="${c.module}">
+                            <span class="io-bit-label">${type}${c.byte}.${c.bit}</span>
                             <span class="io-bit-state">0</span>
                         </div>
-                    `);
-                }
-            }
+                    `;
 
-            // Uscite
-            const outputsGrid = $('#outputs-grid');
-            for (let byte = 0; byte < 2; byte++) {
-                for (let bit = 0; bit < 8; bit++) {
-                    outputsGrid.append(`
-                        <div class="io-bit output-bit" data-type="Q" data-byte="${byte}" data-bit="${bit}">
-                            <span class="io-bit-label">Q${byte}.${bit}</span>
-                            <span class="io-bit-state">0</span>
-                        </div>
-                    `);
-                }
-            }
+            // Ingressi e uscite secondo CPU ed espansioni installate
+            $('#inputs-grid').html(cfg.di.map(c => bitHtml('input-bit', 'I', c)).join(''));
+            $('#outputs-grid').html(cfg.dq.map(c => bitHtml('output-bit', 'Q', c)).join(''));
 
             // Merker
-            const merkersGrid = $('#merkers-grid');
+            const merkers = [];
             for (let byte = 0; byte < 2; byte++) {
                 for (let bit = 0; bit < 8; bit++) {
-                    merkersGrid.append(`
-                        <div class="io-bit merker-bit" data-type="M" data-byte="${byte}" data-bit="${bit}">
-                            <span class="io-bit-label">M${byte}.${bit}</span>
-                            <span class="io-bit-state">0</span>
-                        </div>
-                    `);
+                    merkers.push(bitHtml('merker-bit', 'M', { byte, bit, module: 'Merker' }));
                 }
             }
+            $('#merkers-grid').html(merkers.join(''));
 
             // Click su ingressi per toggle
-            $('.input-bit').on('click', function() {
+            $('#inputs-grid').off('click').on('click', '.input-bit', function() {
                 const byte = $(this).data('byte');
                 const bit = $(this).data('bit');
                 PLC.toggleBit('I', byte, bit);
@@ -1320,6 +687,7 @@
             
             // Crea anche I/O analogici
             this.createAnalogIOGrid();
+            this.updateDisplay();
         },
 
         // ==================== Analog I/O Grid ====================
@@ -1356,7 +724,8 @@
                 // Eventi slider AI
                 $('.ai-slider').on('input', function() {
                     const addr = parseInt($(this).data('address'));
-                    const value = parseInt($(this).val());
+                    const range = PLC.hardware.analogRange;
+                    const value = Math.max(range.min, Math.min(range.max, parseInt($(this).val()) || 0));
                     PLC.writeWord('IW', addr, value);
                     UI.updateAnalogDisplay();
                 });
@@ -1425,14 +794,24 @@
                 this.updateHardwarePreview();
             });
             
-            // Aggiungi espansione
+            // Aggiungi espansione (alla bozza: diventa effettiva con Applica)
             $('#hw-add-expansion').on('click', () => {
                 const expId = $('#hw-expansion-select').val();
-                if (expId && !PLC.hardware.installedExpansions.includes(expId)) {
-                    PLC.hardware.installedExpansions.push(expId);
-                    this.updateHardwarePreview();
-                    $('#hw-expansion-select').val('');
+                if (!expId) return;
+                const reason = PLC.canAddExpansion(expId, $('#hw-cpu-select').val(), this.hwDraft);
+                if (reason) {
+                    this.showToast(reason);
+                    return;
                 }
+                this.hwDraft.push(expId);
+                this.updateHardwarePreview();
+                $('#hw-expansion-select').val('');
+            });
+            
+            // Rimuovi espansione
+            $('#hw-expansions-list').on('click', '.expansion-remove', function() {
+                UI.hwDraft.splice(parseInt($(this).data('idx')), 1);
+                UI.updateHardwarePreview();
             });
             
             // Applica configurazione
@@ -1441,8 +820,12 @@
             });
         },
         
+        // Espansioni in modifica nella finestra hardware
+        hwDraft: [],
+        
         openHardwareModal: function() {
             // Sincronizza UI con configurazione corrente
+            this.hwDraft = PLC.hardware.installedExpansions.slice();
             $('#hw-cpu-select').val(PLC.hardware.currentCPU);
             this.updateHardwarePreview();
             $('#hardware-modal').addClass('active');
@@ -1451,6 +834,7 @@
         updateHardwarePreview: function() {
             const cpuId = $('#hw-cpu-select').val();
             const cpu = PLC.hardware.cpuModels[cpuId];
+            const esc = (t) => $('<div>').text(t).html();
             
             // Info CPU
             $('#hw-cpu-info').html(`
@@ -1464,10 +848,10 @@
             const expList = $('#hw-expansions-list');
             expList.empty();
             
-            if (PLC.hardware.installedExpansions.length === 0) {
+            if (this.hwDraft.length === 0) {
                 expList.html('<div class="no-expansions" style="color: var(--plc-text-dim); font-size: 12px; padding: 8px 0;">Nessuna espansione installata</div>');
             } else {
-                PLC.hardware.installedExpansions.forEach((expId, idx) => {
+                this.hwDraft.forEach((expId, idx) => {
                     const exp = PLC.hardware.expansions[expId];
                     if (exp) {
                         let specs = [];
@@ -1479,91 +863,67 @@
                         expList.append(`
                             <div class="expansion-item" data-idx="${idx}">
                                 <div class="expansion-item-info">
-                                    <div class="expansion-item-icon">${expId.includes('SB') ? 'SB' : 'SM'}</div>
+                                    <div class="expansion-item-icon">${expId.startsWith('SB') ? 'SB' : 'SM'}</div>
                                     <div>
                                         <div class="expansion-item-name">${exp.name}</div>
                                         <div class="expansion-item-specs">${specs.join(' / ')}</div>
                                     </div>
                                 </div>
-                                <button class="expansion-remove" data-idx="${idx}" title="Rimuovi">×</button>
+                                <button class="expansion-remove" data-idx="${idx}" title="Rimuovi" aria-label="Rimuovi ${exp.name}">×</button>
                             </div>
                         `);
                     }
                 });
-                
-                // Eventi rimozione
-                expList.find('.expansion-remove').on('click', function() {
-                    const idx = parseInt($(this).data('idx'));
-                    PLC.hardware.installedExpansions.splice(idx, 1);
-                    UI.updateHardwarePreview();
+            }
+            
+            // Indirizzi come in TIA Portal (anteprima, non ancora applicata)
+            const cfg = PLC.getIOConfig(cpuId, this.hwDraft);
+            $('#hw-total-di').text(cfg.di.length);
+            $('#hw-total-dq').text(cfg.dq.length);
+            $('#hw-total-ai').text(cfg.ai.length);
+            $('#hw-total-aq').text(cfg.aq.length);
+            
+            // Errori: la configurazione non si puo' applicare
+            $('#hw-errors').html(cfg.errors.map(e => `<div>${esc(e)}</div>`).join(''));
+            $('#hw-apply').prop('disabled', cfg.errors.length > 0);
+            
+            // Mappa indirizzi: un intervallo per modulo
+            const ranges = (channels, type) => {
+                const groups = [];
+                channels.forEach(c => {
+                    const last = groups[groups.length - 1];
+                    if (last && last.module === c.module) {
+                        last.to = c;
+                    } else {
+                        groups.push({ module: c.module, from: c, to: c });
+                    }
                 });
-            }
-            
-            // Calcola totali (preview, non ancora applicata)
-            let totalDI = cpu.di;
-            let totalDQ = cpu.dq;
-            let totalAI = cpu.ai;
-            let totalAQ = cpu.aq;
-            let aiAddrs = [];
-            let aqAddrs = [];
-            
-            // AI CPU
-            for (let i = 0; i < cpu.ai; i++) {
-                aiAddrs.push(`IW${cpu.aiStart + (i * 2)}`);
-            }
-            // AQ CPU
-            if (cpu.aq > 0) {
-                for (let i = 0; i < cpu.aq; i++) {
-                    aqAddrs.push(`QW${cpu.aqStart + (i * 2)}`);
-                }
-            }
-            
-            // Espansioni
-            let expAIStart = 96;
-            let expAQStart = 96;
-            PLC.hardware.installedExpansions.forEach(expId => {
-                const exp = PLC.hardware.expansions[expId];
-                if (exp) {
-                    totalDI += exp.di || 0;
-                    totalDQ += exp.dq || 0;
-                    
-                    for (let i = 0; i < (exp.ai || 0); i++) {
-                        aiAddrs.push(`IW${expAIStart + (i * 2)}`);
-                    }
-                    expAIStart += (exp.ai || 0) * 2;
-                    totalAI += exp.ai || 0;
-                    
-                    for (let i = 0; i < (exp.aq || 0); i++) {
-                        aqAddrs.push(`QW${expAQStart + (i * 2)}`);
-                    }
-                    expAQStart += (exp.aq || 0) * 2;
-                    totalAQ += exp.aq || 0;
+                return groups.map(g => `${type}${g.from.byte}.${g.from.bit}-${type}${g.to.byte}.${g.to.bit} (${esc(g.module)})`);
+            };
+            const rows = [
+                ['DI', ranges(cfg.di, 'I')],
+                ['DQ', ranges(cfg.dq, 'Q')],
+                ['AI', cfg.ai.map(a => `IW${a}`)],
+                ['AQ', cfg.aq.map(a => `QW${a}`)]
+            ];
+            let addrMap = '<div class="address-map-title">Mappa Indirizzi:</div>';
+            rows.forEach(([label, list]) => {
+                if (list.length > 0) {
+                    addrMap += `<div class="address-map-row"><span class="addr">${label}:</span><span class="desc">${list.join(', ')}</span></div>`;
                 }
             });
-            
-            // Aggiorna summary
-            $('#hw-total-di').text(totalDI);
-            $('#hw-total-dq').text(totalDQ);
-            $('#hw-total-ai').text(totalAI);
-            $('#hw-total-aq').text(totalAQ);
-            
-            // Mappa indirizzi
-            let addrMap = '<div class="address-map-title">Mappa Indirizzi Analogici:</div>';
-            if (aiAddrs.length > 0) {
-                addrMap += '<div class="address-map-row"><span class="addr">AI:</span><span class="desc">' + aiAddrs.join(', ') + '</span></div>';
-            }
-            if (aqAddrs.length > 0) {
-                addrMap += '<div class="address-map-row"><span class="addr">AQ:</span><span class="desc">' + aqAddrs.join(', ') + '</span></div>';
-            }
             $('#hw-address-map').html(addrMap);
         },
         
         applyHardwareConfig: function() {
-            // Applica CPU selezionata
-            PLC.hardware.currentCPU = $('#hw-cpu-select').val();
+            const cpuId = $('#hw-cpu-select').val();
+            if (PLC.getIOConfig(cpuId, this.hwDraft).errors.length > 0) return;
             
-            // Ricrea griglia I/O analogici
-            this.createAnalogIOGrid();
+            PLC.hardware.currentCPU = cpuId;
+            PLC.hardware.installedExpansions = this.hwDraft.slice();
+            
+            // Ricrea griglie I/O digitali e analogici
+            this.createIOGrid();
             
             // Chiudi modal
             closeHardwareModal();
@@ -1615,7 +975,7 @@
                 <div class="ladder-rung" data-rung-id="${rung.id}">
                     <div class="rung-header">
                         <span class="rung-number">Network ${rung.id}</span>
-                        <input type="text" class="rung-comment" placeholder="Commento..." value="${rung.comment || ''}">
+                        <input type="text" class="rung-comment" placeholder="Commento..." value="${esc(rung.comment || '')}">
                         <div class="rung-actions">
                             <button class="rung-move-up" title="Sposta su">^</button>
                             <button class="rung-move-down" title="Sposta giu">v</button>
@@ -1934,7 +1294,7 @@
                 <div class="ladder-element ${elem.type}" data-elem-id="${elem.id}" data-rung-id="${rungId}" data-idx="${idx}" data-section="${section || 'inputs'}">
                     <div class="element-symbol">${symbolHtml}</div>
                     <div class="element-address">${displayAddr}</div>
-                    ${elem.comment ? `<div class="element-comment">${elem.comment}</div>` : ''}
+                    ${elem.comment ? `<div class="element-comment">${esc(elem.comment)}</div>` : ''}
                 </div>
             `;
         },
@@ -1947,7 +1307,7 @@
                 if (op.type === 'const') return op.value;
                 if (op.type === 'counter') return `C${op.value}.CV`;
                 if (op.type === 'timer') return `T${op.value}.ET`;
-                if (op.type === 'MW') return `MW${op.value}`;
+                if (op.type === 'MW' || op.type === 'IW' || op.type === 'QW') return `${op.type}${op.value}`;
                 return op.value;
             };
             return `${fmt(op1)} ? ${fmt(op2)}`;
@@ -2072,6 +1432,7 @@
             $('#timer-config').hide();
             $('#counter-config').hide();
             $('#ctud-config').hide();
+            $('#pin-r-config, #pin-ld-config, #pin-qd-config').hide();
             $('#compare-config').hide();
 
             // Popola form indirizzo (per elementi con indirizzo)
@@ -2112,9 +1473,28 @@
                     $('#config-ctud-cd-byte').val(cd.byte);
                     $('#config-ctud-cd-bit').val(cd.bit);
                 }
+                
+                // Ingressi R/LD e uscita QD collegabili a un operando
+                this.counterPins(elem.type).forEach(([key, prop]) => {
+                    const a = elem[prop];
+                    $(`#pin-${key}-config`).show();
+                    $(`#config-pin-${key}-type`).val(a && a.type ? a.type : '');
+                    $(`#config-pin-${key}-byte`).val(a ? a.byte || 0 : 0);
+                    $(`#config-pin-${key}-bit`).val(a ? a.bit || 0 : 0);
+                });
             }
 
             $('#config-modal').addClass('active');
+        },
+        
+        // Operandi opzionali dei contatori: [chiave nel form, proprieta' dell'elemento]
+        counterPins: function(type) {
+            const pins = {
+                'counter-ctu': [['r', 'resetAddr']],
+                'counter-ctd': [['ld', 'loadAddr']],
+                'counter-ctud': [['r', 'resetAddr'], ['ld', 'loadAddr'], ['qd', 'qdAddr']]
+            };
+            return pins[type] || [];
         },
 
         // Salva config elemento
@@ -2161,6 +1541,19 @@
                         bit: parseInt($('#config-ctud-cd-bit').val()) || 0
                     };
                 }
+                
+                this.counterPins(elem.type).forEach(([key, prop]) => {
+                    const type = $(`#config-pin-${key}-type`).val();
+                    if (type) {
+                        elem[prop] = {
+                            type: type,
+                            byte: parseInt($(`#config-pin-${key}-byte`).val()) || 0,
+                            bit: parseInt($(`#config-pin-${key}-bit`).val()) || 0
+                        };
+                    } else {
+                        delete elem[prop];
+                    }
+                });
             }
             
             // Comparatori: salva operandi
@@ -2251,7 +1644,9 @@
 
         // Avvia simulazione
         startSimulation: function() {
-            PLC.running = true;
+            // Gia' in RUN: un secondo intervallo resterebbe orfano
+            if (PLC.running || PLC.scanInterval) return;
+            PLC.startup();
             $('#btn-run').addClass('active');
             $('#status-led').addClass('running');
             $('#status-text').text('RUN');
@@ -2265,12 +1660,13 @@
             
             PLC.scanInterval = setInterval(() => {
                 LadderEngine.execute();
+                UI.updateDisplay();
             }, PLC.scanTime);
         },
 
         // Ferma simulazione
         stopSimulation: function() {
-            PLC.running = false;
+            PLC.stop();
             $('#btn-run').removeClass('active');
             $('#status-led').removeClass('running');
             $('#status-text').text('STOP');
@@ -2283,6 +1679,7 @@
                 clearInterval(PLC.scanInterval);
                 PLC.scanInterval = null;
             }
+            this.updateDisplay();
         },
 
         // Aggiorna display I/O
@@ -2433,7 +1830,7 @@
             
             // Prepara oggetto completo per export
             const exportData = {
-                version: '1.6.9',
+                version: plcSimConfig.version,
                 name: name,
                 savedAt: new Date().toISOString(),
                 program: PLC.program,
@@ -2451,26 +1848,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
-            // Salva anche nel database
-            $.ajax({
-                url: plcAjax.ajaxurl,
-                method: 'POST',
-                data: {
-                    action: 'plc_save_program',
-                    nonce: plcAjax.nonce,
-                    session_id: Session.id,
-                    name: name,
-                    program: JSON.stringify(PLC.program),
-                    hardware_config: JSON.stringify(hardwareConfig),
-                    hmi_config: HMI.exportConfig()
-                },
-                success: function(response) {
-                    if (response.success) {
-                        console.log('Programma salvato anche nel database');
-                    }
-                }
-            });
         },
 
         // Mostra modal caricamento
@@ -2519,175 +1896,86 @@
                 return;
             }
             
-            // Ferma simulazione
-            this.stopSimulation();
-            
-            // Carica programma
-            PLC.program = program;
-            PLC.program.name = name;
-            $('#program-name').val(name);
-            
-            // Carica hardware config se presente
-            if (hardwareConfig) {
-                if (hardwareConfig.currentCPU) {
-                    PLC.hardware.currentCPU = hardwareConfig.currentCPU;
-                }
-                if (hardwareConfig.installedExpansions) {
-                    PLC.hardware.installedExpansions = hardwareConfig.installedExpansions;
-                }
-                PLC.hardware.updateIOLimits();
+            try {
+                this.applyProgram(program, hardwareConfig, hmiConfig, name);
+            } catch (err) {
+                console.error('Errore caricamento programma:', err);
+                alert('Errore nel caricamento del programma: ' + err.message);
+                return;
             }
-            
-            // Carica HMI config se presente
-            if (hmiConfig) {
-                HMI.importConfig(JSON.stringify(hmiConfig));
-            }
-            
-            // Reset memoria PLC
-            PLC.resetMemory();
-            
-            // Render programma
-            LadderEditor.render();
-            this.updateDisplay();
             
             alert('Programma "' + name + '" caricato con successo!');
         },
 
-        // Carica programma
-        loadProgram: function(id) {
-            console.log('Caricamento programma ID:', id);
+        // Applica programma, hardware e HMI letti da un file salvato
+        applyProgram: function(data, hwConfig, hmiConfig, name) {
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                throw new Error('Struttura programma non valida');
+            }
+            data = sanitize(data);
+            hwConfig = sanitize(hwConfig);
             
-            $.ajax({
-                url: plcAjax.ajaxurl,
-                method: 'POST',
-                data: {
-                    action: 'plc_load_program',
-                    nonce: plcAjax.nonce,
-                    session_id: Session.id,
-                    id: id
-                },
-                success: function(response) {
-                    console.log('Risposta server:', response);
-                    
-                    if (response.success) {
-                        try {
-                            UI.stopSimulation();
-                            PLC.reset();
-                            History.clear();
-                            
-                            // Il programma potrebbe essere gia un oggetto o una stringa JSON
-                            let data = response.data.program;
-                            console.log('Tipo dati:', typeof data);
-                            console.log('Dati raw:', data);
-                            
-                            if (typeof data === 'string') {
-                                // Prova a pulire il JSON se corrotto
-                                data = data.trim();
-                                // Rimuovi eventuali escape extra
-                                if (data.startsWith('\\"') || data.indexOf('\\"') !== -1) {
-                                    data = data.replace(/\\"/g, '"');
-                                }
-                                console.log('Dati puliti:', data);
-                                data = JSON.parse(data);
-                            }
-                            
-                            console.log('Dati programma parsed:', data);
-                            
-                            // Verifica struttura minima
-                            if (!data || typeof data !== 'object') {
-                                throw new Error('Struttura programma non valida');
-                            }
-                            
-                            // Assicura che rungs esista
-                            if (!data.rungs) {
-                                data.rungs = [];
-                            }
-                            
-                            // Compatibilita: converti vecchia struttura elements in inputs/outputs
-                            data.rungs.forEach(rung => {
-                                if (rung.elements && !rung.inputs) {
-                                    rung.inputs = [];
-                                    rung.outputs = [];
-                                    rung.elements.forEach(elem => {
-                                        if (elem.type && elem.type.startsWith('coil')) {
-                                            rung.outputs.push(elem);
-                                        } else {
-                                            rung.inputs.push(elem);
-                                        }
-                                    });
-                                    delete rung.elements;
-                                }
-                                if (!rung.inputs) rung.inputs = [];
-                                if (!rung.outputs) rung.outputs = [];
-                            });
-                            
-                            PLC.program = data;
-                            
-                            // Carica Hardware config se presente
-                            if (response.data.hardware_config) {
-                                try {
-                                    let hwConfig = response.data.hardware_config;
-                                    if (typeof hwConfig === 'string') {
-                                        hwConfig = JSON.parse(hwConfig);
-                                    }
-                                    if (hwConfig.currentCPU) {
-                                        PLC.hardware.currentCPU = hwConfig.currentCPU;
-                                    }
-                                    if (hwConfig.installedExpansions) {
-                                        PLC.hardware.installedExpansions = hwConfig.installedExpansions;
-                                    }
-                                    // Ricrea griglia I/O analogici
-                                    UI.createAnalogIOGrid();
-                                    console.log('Hardware config caricata:', hwConfig);
-                                } catch (e) {
-                                    console.warn('Errore caricamento Hardware config:', e);
-                                }
-                            }
-                            
-                            // Carica HMI config se presente
-                            if (response.data.hmi_config) {
-                                try {
-                                    HMI.importConfig(response.data.hmi_config);
-                                } catch (e) {
-                                    console.warn('Errore caricamento HMI config:', e);
-                                }
-                            }
-                            
-                            // Ricostruisci UI
-                            $('#ladder-canvas').empty();
-                            $('#program-name').val(data.name || 'Main [OB1]');
-                            UI.rungCounter = 0;
-                            UI.timerCounter = 0;
-                            UI.counterCounter = 0;
-                            
-                            if (data.rungs && data.rungs.length > 0) {
-                                data.rungs.forEach(rung => {
-                                    UI.rungCounter = Math.max(UI.rungCounter, rung.id || 0);
-                                    UI.renderRungFromData(rung);
-                                });
-                            } else {
-                                UI.addRung();
-                            }
-                            
-                            closeModal();
-                            UI.updateDisplay();
-                            console.log('Programma caricato con successo');
-                            
-                        } catch (err) {
-                            console.error('Errore parsing programma:', err);
-                            console.error('Dati ricevuti:', response.data.program);
-                            alert('Errore nel caricamento del programma: ' + err.message + '\n\nIl programma salvato potrebbe essere corrotto. Prova a salvare un nuovo programma.');
+            this.stopSimulation();
+            PLC.reset();
+            History.clear();
+            
+            if (!Array.isArray(data.rungs)) {
+                data.rungs = [];
+            }
+            
+            // Compatibilita: converti vecchia struttura elements in inputs/outputs
+            data.rungs.forEach(rung => {
+                if (rung.elements && !rung.inputs) {
+                    rung.inputs = [];
+                    rung.outputs = [];
+                    rung.elements.forEach(elem => {
+                        if (elem.type && elem.type.startsWith('coil')) {
+                            rung.outputs.push(elem);
+                        } else {
+                            rung.inputs.push(elem);
                         }
-                    } else {
-                        console.error('Errore risposta:', response);
-                        alert('Errore dal server: ' + (response.data || 'sconosciuto'));
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Errore AJAX:', status, error);
-                    alert('Errore di connessione: ' + error);
+                    });
+                    delete rung.elements;
                 }
+                if (!rung.inputs) rung.inputs = [];
+                if (!rung.outputs) rung.outputs = [];
             });
+            
+            data.name = name || data.name || 'Main [OB1]';
+            window.PLCSimCore.assignIds(data);
+            PLC.program = data;
+            
+            if (hwConfig && typeof hwConfig === 'object') {
+                if (hwConfig.currentCPU && PLC.hardware.cpuModels[hwConfig.currentCPU]) {
+                    PLC.hardware.currentCPU = hwConfig.currentCPU;
+                }
+                if (Array.isArray(hwConfig.installedExpansions)) {
+                    PLC.hardware.installedExpansions = hwConfig.installedExpansions;
+                }
+                this.createIOGrid();
+            }
+            
+            if (hmiConfig) {
+                HMI.importConfig(typeof hmiConfig === 'string' ? hmiConfig : JSON.stringify(hmiConfig));
+            }
+            
+            // Ricostruisci UI
+            $('#ladder-canvas').empty();
+            $('#program-name').val(data.name);
+            this.rungCounter = 0;
+            this.timerCounter = 0;
+            this.counterCounter = 0;
+            
+            if (data.rungs.length > 0) {
+                data.rungs.forEach(rung => {
+                    this.rungCounter = Math.max(this.rungCounter, rung.id || 0);
+                    this.renderRungFromData(rung);
+                });
+            } else {
+                this.addRung();
+            }
+            
+            this.updateDisplay();
         },
 
         // Render rung da dati salvati
@@ -3421,7 +2709,7 @@
                     return `      CALL  "CTU"\n` +
                            `            DB${50 + ctuId}\n` +
                            `       CU  :=\n` +
-                           `       R   :=FALSE\n` +
+                           `       R   :=${this.pinToAWL(elem.resetAddr)}\n` +
                            `       PV  :=${ctuPV}\n` +
                            `       Q   :=\n` +
                            `       CV  :=\n`;
@@ -3432,7 +2720,7 @@
                     return `      CALL  "CTD"\n` +
                            `            DB${50 + ctdId}\n` +
                            `       CD  :=\n` +
-                           `       LD  :=FALSE\n` +
+                           `       LD  :=${this.pinToAWL(elem.loadAddr)}\n` +
                            `       PV  :=${ctdPV}\n` +
                            `       Q   :=\n` +
                            `       CV  :=\n`;
@@ -3443,12 +2731,12 @@
                     return `      CALL  "CTUD"\n` +
                            `            DB${50 + ctudId}\n` +
                            `       CU  :=\n` +
-                           `       CD  :=\n` +
-                           `       R   :=FALSE\n` +
-                           `       LD  :=FALSE\n` +
+                           `       CD  :=${this.pinToAWL(elem.cdAddr)}\n` +
+                           `       R   :=${this.pinToAWL(elem.resetAddr)}\n` +
+                           `       LD  :=${this.pinToAWL(elem.loadAddr)}\n` +
                            `       PV  :=${ctudPV}\n` +
                            `       QU  :=\n` +
-                           `       QD  :=\n` +
+                           `       QD  :=${elem.qdAddr ? this.pinToAWL(elem.qdAddr) : ''}\n` +
                            `       CV  :=\n`;
                     
                 case 'cmp-eq':
@@ -3487,7 +2775,9 @@
                 case 'const': return op.value || 0;
                 case 'counter': return `DB${50 + (op.value || 0)}.CV`;
                 case 'timer': return `DB${10 + (op.value || 0)}.ET`;
-                case 'MW': return `MW${op.value || 0}`;
+                case 'MW':
+                case 'IW':
+                case 'QW': return `${op.type}${op.value || 0}`;
                 default: return op.value || 0;
             }
         },
@@ -3495,6 +2785,7 @@
         // ==================== EXPORT SCL (Structured Control Language) ====================
         exportSCL: function() {
             let scl = '';
+            this.sclEdgeCount = 0;
             const progName = (PLC.program.name || 'Main').replace(/[^a-zA-Z0-9_]/g, '_');
             
             // Header
@@ -3543,8 +2834,11 @@
                 return scl;
             }
             
-            // Genera condizione
-            const condition = this.inputsToSCL(inputs);
+            // Genera condizione; i box in serie (timer, contatori) e i fronti
+            // diventano chiamate prima dell'assegnazione delle uscite
+            const pre = [];
+            const condition = this.seriesToSCL(inputs, null, pre);
+            scl += pre.join('');
             
             // Genera azioni per ogni output
             outputs.forEach(elem => {
@@ -3553,6 +2847,38 @@
             
             scl += `\n`;
             return scl;
+        },
+
+        // Serie di elementi: restituisce l'espressione del risultato (prefix
+        // compreso) e accoda in pre le chiamate dei box e dei fronti. Un box
+        // riceve come ingresso la condizione di tutto cio' che lo precede e la
+        // sua uscita Q diventa la condizione per gli elementi successivi.
+        seriesToSCL: function(elements, prefix, pre) {
+            let terms = prefix ? [prefix] : [];
+            const sofar = () => terms.length ? terms.join(' AND ') : 'TRUE';
+            
+            (elements || []).forEach(elem => {
+                if (elem.type === 'branch') {
+                    const lines = (elem.lines || []).filter(line => line.length > 0);
+                    if (lines.length === 0) return;
+                    const base = sofar();
+                    const ors = lines.map(line => this.seriesToSCL(line, base, pre));
+                    terms = [`(${ors.join(' OR ')})`];
+                } else if (elem.type.startsWith('timer-') || elem.type.startsWith('counter-')) {
+                    pre.push(this.outputToSCL(elem, sofar()));
+                    terms = [this.inputElementToSCL(elem)];
+                } else if (elem.type === 'contact-p' || elem.type === 'contact-n') {
+                    // Come -|P|- / -|N|- di TIA: fronte dell'operando, in AND con la condizione
+                    const addr = elem.address || {};
+                    const inst = `"${elem.type === 'contact-p' ? 'R_TRIG' : 'F_TRIG'}_${++this.sclEdgeCount}"`;
+                    pre.push(`    ${inst}(CLK := "${addr.type || 'M'}${addr.byte || 0}.${addr.bit || 0}");\n`);
+                    terms.push(`${inst}.Q`);
+                } else {
+                    terms.push(this.inputElementToSCL(elem));
+                }
+            });
+            
+            return sofar();
         },
 
         inputsToSCL: function(elements) {
@@ -3633,7 +2959,9 @@
                 case 'const': return op.value || 0;
                 case 'counter': return `"C${op.value || 0}".CV`;
                 case 'timer': return `"T${op.value || 0}".ET`;
-                case 'MW': return `"MW${op.value || 0}"`;
+                case 'MW':
+                case 'IW':
+                case 'QW': return `"${op.type}${op.value || 0}"`;
                 default: return op.value || 0;
             }
         },
@@ -3668,18 +2996,28 @@
                 case 'counter-ctu':
                     const ctuId = elem.counterId || 0;
                     const ctuPV = elem.preset || 10;
-                    return `    "C${ctuId}"(CU := ${condition}, R := FALSE, PV := ${ctuPV});${comment}\n`;
+                    return `    "C${ctuId}"(CU := ${condition}, R := ${this.pinToSCL(elem.resetAddr)}, PV := ${ctuPV});${comment}\n`;
                 case 'counter-ctd':
                     const ctdId = elem.counterId || 0;
                     const ctdPV = elem.preset || 10;
-                    return `    "C${ctdId}"(CD := ${condition}, LD := FALSE, PV := ${ctdPV});${comment}\n`;
+                    return `    "C${ctdId}"(CD := ${condition}, LD := ${this.pinToSCL(elem.loadAddr)}, PV := ${ctdPV});${comment}\n`;
                 case 'counter-ctud':
                     const ctudId = elem.counterId || 0;
                     const ctudPV = elem.preset || 10;
-                    return `    "C${ctudId}"(CU := ${condition}, CD := FALSE, R := FALSE, LD := FALSE, PV := ${ctudPV});${comment}\n`;
+                    const qd = elem.qdAddr ? `, QD => ${this.pinToSCL(elem.qdAddr)}` : '';
+                    return `    "C${ctudId}"(CU := ${condition}, CD := ${this.pinToSCL(elem.cdAddr)}, R := ${this.pinToSCL(elem.resetAddr)}, LD := ${this.pinToSCL(elem.loadAddr)}, PV := ${ctudPV}${qd});${comment}\n`;
                 default:
                     return `    // Output non supportato: ${elem.type}\n`;
             }
+        },
+
+        // Operando opzionale di un box (R, LD, CD, QD) per gli export
+        pinToAWL: function(a) {
+            return a && a.type ? `${a.type}${a.byte || 0}.${a.bit || 0}` : 'FALSE';
+        },
+        
+        pinToSCL: function(a) {
+            return a && a.type ? `"${a.type}${a.byte || 0}.${a.bit || 0}"` : 'FALSE';
         },
 
         exportXML: function() {
@@ -4235,13 +3573,14 @@
 
         importJSON: function(content) {
             try {
-                const data = JSON.parse(content);
-                if (!data.rungs) {
+                const data = sanitize(JSON.parse(content));
+                if (!data || !Array.isArray(data.rungs)) {
                     throw new Error('Formato JSON non valido');
                 }
                 
                 this.stopSimulation();
                 PLC.reset();
+                window.PLCSimCore.assignIds(data);
                 PLC.program = data;
                 
                 $('#ladder-canvas').empty();
@@ -4284,8 +3623,12 @@
                     rungs: []
                 };
                 
-                // Parse networks/compile units
-                const networks = xmlDoc.querySelectorAll('SW\\.Blocks\\.CompileUnit, CompileUnit, FlgNet');
+                // Parse networks/compile units. Il FlgNet sta dentro il CompileUnit:
+                // cercarli insieme duplicava ogni network. FlgNet solo se mancano i CompileUnit.
+                let networks = xmlDoc.querySelectorAll('SW\\.Blocks\\.CompileUnit, CompileUnit');
+                if (networks.length === 0) {
+                    networks = xmlDoc.querySelectorAll('FlgNet');
+                }
                 
                 if (networks.length === 0) {
                     // Prova parsing generico per altri formati XML
@@ -4522,7 +3865,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>${PLC.program.name} - Ladder Diagram</title>
+    <title>${esc(PLC.program.name)} - Ladder Diagram</title>
     <style>
         @page { size: A4 landscape; margin: 15mm; }
         body { 
@@ -4738,7 +4081,7 @@
         },
 
         escapeHtml: function(str) {
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return esc(str);
         }
     };
 
@@ -4923,7 +4266,7 @@
                 this.zoomFit();
             }, 100);
             
-            console.log(`HMI: Modello cambiato a ${model.name} (${model.resolution.w}x${model.resolution.h})`);
+            console.log(`HMI: Modello cambiato a ${esc(model.name)} (${model.resolution.w}x${model.resolution.h})`);
         },
         
         // Genera tasti funzione in base al modello
@@ -4946,7 +4289,7 @@
                 const label = config.label || fkeyId;
                 const hasConfig = config.action && config.action !== 'none';
                 
-                return $(`<button class="hmi-fkey ${hasConfig ? 'configured' : ''}" data-fkey="${fkeyId}" title="${fkeyId}: ${this.getFkeyActionDescription(config)}">${label}</button>`)
+                return $(`<button class="hmi-fkey ${hasConfig ? 'configured' : ''}" data-fkey="${fkeyId}" title="${esc(fkeyId + ': ' + this.getFkeyActionDescription(config))}">${esc(label)}</button>`)
                     .on('click', function(e) {
                         if (PLC.running) {
                             // In RUN: esegui azione
@@ -5023,7 +4366,7 @@
             const $pageSelect = $('#fkey-config-page');
             $pageSelect.empty();
             this.pages.forEach(p => {
-                $pageSelect.append(`<option value="${p.id}">${p.name}</option>`);
+                $pageSelect.append(`<option value="${p.id}">${esc(p.name)}</option>`);
             });
             
             // Imposta valori target se esistono
@@ -5378,7 +4721,7 @@
                 const canDelete = this.pages.length > 1;
                 const $tab = $(`
                     <div class="hmi-page-tab ${isActive ? 'active' : ''}" data-page-id="${page.id}">
-                        <span class="hmi-page-name">${page.name}</span>
+                        <span class="hmi-page-name">${esc(page.name)}</span>
                         ${canDelete ? '<button class="hmi-page-delete" title="Elimina pagina">&times;</button>' : ''}
                     </div>
                 `);
@@ -5585,7 +4928,7 @@
             switch (elem.type) {
                 case 'led':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-led-light ${elem.color}"></div>
                         <div class="hmi-element-address">${addr}</div>
                     `;
@@ -5593,15 +4936,15 @@
                     
                 case 'button':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
-                        <div class="hmi-button-btn ${elem.color}">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
+                        <div class="hmi-button-btn ${elem.color}">${esc(elem.label)}</div>
                         <div class="hmi-element-address">${addr}</div>
                     `;
                     break;
                     
                 case 'switch':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-switch-track">
                             <div class="hmi-switch-knob"></div>
                         </div>
@@ -5611,7 +4954,7 @@
                     
                 case 'display':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-display-screen ${elem.color}">0</div>
                         <div class="hmi-element-address">${addr}</div>
                     `;
@@ -5619,7 +4962,7 @@
                     
                 case 'slider':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-slider-container">
                             <input type="range" class="hmi-slider-input" min="${elem.min}" max="${elem.max}" value="0">
                             <div class="hmi-slider-value">0</div>
@@ -5630,7 +4973,7 @@
                     
                 case 'gauge':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-gauge-container">
                             <div class="hmi-gauge-bg"></div>
                             <div class="hmi-gauge-fill"></div>
@@ -5645,7 +4988,7 @@
                 // ==================== SIMBOLI INDUSTRIALI ====================
                 case 'motor':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-motor">
                             <svg viewBox="0 0 60 60" class="hmi-motor-svg">
                                 <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="3"/>
@@ -5659,7 +5002,7 @@
                     
                 case 'valve':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-valve">
                             <svg viewBox="0 0 40 60" class="hmi-valve-svg">
                                 <polygon points="5,15 35,15 20,35" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -5674,7 +5017,7 @@
                     
                 case 'pump':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-pump">
                             <svg viewBox="0 0 60 60" class="hmi-pump-svg">
                                 <circle cx="30" cy="30" r="22" fill="none" stroke="currentColor" stroke-width="3"/>
@@ -5689,7 +5032,7 @@
                     
                 case 'tank':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-tank">
                             <svg viewBox="0 0 60 100" class="hmi-tank-svg">
                                 <rect x="5" y="10" width="50" height="80" rx="5" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -5706,7 +5049,7 @@
                     
                 case 'conveyor':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-conveyor">
                             <svg viewBox="0 0 120 40" class="hmi-conveyor-svg">
                                 <ellipse cx="20" cy="20" rx="15" ry="12" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -5727,7 +5070,7 @@
                     
                 case 'light':
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-light">
                             <div class="hmi-light-lamp red"></div>
                             <div class="hmi-light-lamp yellow"></div>
@@ -5757,7 +5100,7 @@
                 case 'text':
                     content = `
                         <div class="hmi-text">
-                            <span class="hmi-text-content">${elem.label.replace('{v}', '0')}</span>
+                            <span class="hmi-text-content">${esc(String(elem.label || '').replace('{v}', '0'))}</span>
                         </div>
                     `;
                     break;
@@ -5766,7 +5109,7 @@
                     // Canvas per grafico trend
                     content = `
                         <div class="hmi-trend">
-                            <div class="hmi-trend-label">${elem.label}</div>
+                            <div class="hmi-trend-label">${esc(elem.label)}</div>
                             <canvas class="hmi-trend-canvas" data-id="${elem.id}"></canvas>
                         </div>
                     `;
@@ -5778,7 +5121,7 @@
                     if (!elem.trendMaxPoints) elem.trendMaxPoints = 100;
                     if (!elem.trendInterval) elem.trendInterval = 500;
                     content = `
-                        <div class="hmi-element-label">${elem.label}</div>
+                        <div class="hmi-element-label">${esc(elem.label)}</div>
                         <div class="hmi-trend">
                             <canvas class="hmi-trend-canvas" width="280" height="130"></canvas>
                             <div class="hmi-trend-info">
@@ -6017,7 +5360,7 @@
                     const counter = PLC.counters['C' + elem.varNum];
                     return counter ? counter.CV : 0;
                 case 'MW':
-                    return PLC.MW[elem.varNum] || 0;
+                    return PLC.readWord('MW', elem.varNum);
                 default:
                     return 0;
             }
@@ -6031,7 +5374,7 @@
                     PLC.writeBit(elem.varType, elem.varNum, elem.varBit, value);
                     break;
                 case 'MW':
-                    PLC.MW[elem.varNum] = value;
+                    PLC.writeWord('MW', elem.varNum, value);
                     break;
             }
             this.updateDisplay();
@@ -6116,7 +5459,7 @@
                         
                     case 'text':
                         // Sostituisci {v} con il valore
-                        const textContent = elem.label.replace('{v}', value);
+                        const textContent = String(elem.label || '').replace('{v}', value);
                         $el.find('.hmi-text-content').text(textContent);
                         break;
                         
@@ -6323,7 +5666,7 @@
             try {
                 const saved = localStorage.getItem('plc_hmi_config');
                 if (saved) {
-                    const data = JSON.parse(saved);
+                    const data = sanitize(JSON.parse(saved));
                     
                     // Carica modello HMI se presente
                     if (data.model && this.hmiModels[data.model]) {
@@ -6467,7 +5810,7 @@
                     <div class="alarm-item ${statusClass}" data-alarm-id="${alarm.id}">
                         <div class="alarm-status-icon">${alarm.active ? '🔴' : '⚪'}</div>
                         <div class="alarm-info">
-                            <div class="alarm-message">${alarm.message}</div>
+                            <div class="alarm-message">${esc(alarm.message)}</div>
                             <div class="alarm-condition">${varAddr} ${alarm.condition} ${alarm.value}</div>
                         </div>
                         <div class="alarm-actions">
@@ -6634,7 +5977,7 @@
             this.alarms.forEach(alarm => {
                 let currentValue;
                 if (alarm.varType === 'MW') {
-                    currentValue = PLC.MW[alarm.varNum] || 0;
+                    currentValue = PLC.readWord('MW', alarm.varNum);
                 } else {
                     currentValue = PLC.readBit(alarm.varType, alarm.varNum, alarm.varBit);
                 }
@@ -6708,7 +6051,7 @@
         importConfig: function(json) {
             try {
                 this.clearAll();
-                const data = JSON.parse(json);
+                const data = sanitize(JSON.parse(json));
                 
                 // Carica modello HMI se presente
                 if (data.model && this.hmiModels[data.model]) {
@@ -7080,7 +6423,7 @@
                 $list.append(`
                     <div class="alarm-config-item" data-alarm-id="${alarm.id}">
                         <span class="alarm-priority-dot ${alarm.priority}"></span>
-                        <span class="config-msg">${alarm.msg}</span>
+                        <span class="config-msg">${esc(alarm.msg)}</span>
                         <span class="config-var">${varStr}</span>
                         <span class="${alarm.enabled ? 'config-enabled' : 'config-disabled'}">${alarm.enabled ? '✓' : '○'}</span>
                     </div>
@@ -7145,7 +6488,7 @@
                     const counter = PLC.counters['C' + alarm.varNum];
                     return counter ? counter.CV : 0;
                 case 'MW':
-                    return PLC.MW[alarm.varNum] || 0;
+                    return PLC.readWord('MW', alarm.varNum);
                 default:
                     return 0;
             }
@@ -7186,7 +6529,7 @@
                     <div class="alarm-item ${alarm.priority} ${alarm.acked ? 'acked' : 'unacked'}" data-alarm-id="${alarm.id}">
                         <span class="alarm-icon-small">⚠</span>
                         <div class="alarm-details">
-                            <div class="alarm-msg">${alarm.msg}</div>
+                            <div class="alarm-msg">${esc(alarm.msg)}</div>
                             <div class="alarm-time">${time} <span class="alarm-var">${alarm.varStr}</span></div>
                         </div>
                         ${!alarm.acked ? '<button class="alarm-ack-btn">ACK</button>' : ''}
@@ -7244,7 +6587,7 @@
                     <div class="alarm-history-item">
                         <span class="hist-time">${entry.time}</span>
                         <span class="hist-type ${entry.type}">${typeLabel}</span>
-                        <span class="hist-msg">${entry.msg}</span>
+                        <span class="hist-msg">${esc(entry.msg)}</span>
                     </div>
                 `);
             });
@@ -7554,7 +6897,7 @@
         // Legge valore variabile PLC
         readValue: function(elem) {
             if (elem.varType === 'MW') {
-                return PLC.MW[elem.varNum] || 0;
+                return PLC.readWord('MW', elem.varNum);
             } else {
                 return PLC.readBit(elem.varType, elem.varNum, elem.varBit);
             }
@@ -7588,10 +6931,10 @@
             const varInfo = elem.varType === 'MW' 
                 ? `${elem.varType}${elem.varNum}` 
                 : `${elem.varType}${elem.varNum}.${elem.varBit}`;
-            const title = elem.label ? `${elem.label} (${varInfo})` : varInfo;
+            const title = elem.label ? `${esc(elem.label)} (${varInfo})` : varInfo;
             
             let svg = `<g class="scene-element-group scene-element ${selectClass} ${activeClass}" data-id="${elem.id}" transform="translate(${x},${y})">`;
-            svg += `<title>🔧 ${title} - Doppio click per configurare</title>`;
+            svg += `<title>🔧 ${esc(title)} - Doppio click per configurare</title>`;
             
             switch (elem.type) {
                 case 'conveyor':
@@ -7635,7 +6978,7 @@
             // Etichetta
             if (elem.label && elem.type !== 'label') {
                 const size = this.getElementSize(elem.type);
-                svg += `<text x="${size.w/2}" y="${size.h + 14}" text-anchor="middle" fill="#9ca3af" font-size="10">${elem.label}</text>`;
+                svg += `<text x="${size.w/2}" y="${size.h + 14}" text-anchor="middle" fill="#9ca3af" font-size="10">${esc(elem.label)}</text>`;
             }
             
             svg += '</g>';
@@ -7791,7 +7134,7 @@
 
         renderLabel: function(elem) {
             return `
-                <text x="0" y="16" fill="${elem.color || '#ecf0f1'}" font-size="14" font-weight="bold">${elem.text || 'Label'}</text>
+                <text x="0" y="16" fill="${elem.color || '#ecf0f1'}" font-size="14" font-weight="bold">${esc(elem.text || 'Label')}</text>
             `;
         },
 
@@ -7904,8 +7247,8 @@
             try {
                 const data = localStorage.getItem('plc_scene_' + Session.id);
                 if (data) {
-                    const parsed = JSON.parse(data);
-                    this.elements = parsed.elements || [];
+                    const parsed = sanitize(JSON.parse(data));
+                    this.elements = Array.isArray(parsed.elements) ? parsed.elements : [];
                     this.elementCounter = parsed.counter || 0;
                     if (this.elements.length > 0) {
                         $('#scene-empty').addClass('hidden');
@@ -7918,10 +7261,6 @@
     };
 
     // ==================== Global Functions ====================
-    window.closeModal = function() {
-        $('#load-modal').removeClass('active');
-    };
-
     window.closeConfigModal = function() {
         $('#config-modal').removeClass('active');
     };
@@ -7949,6 +7288,8 @@
             UI.init();
             HMI.init();
             Scene.init();
+            // Stato del simulatore, per i test E2E e il debug dalla console
+            window.plcSim = { PLC, UI, HMI, Scene };
         }
     });
 
