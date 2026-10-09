@@ -1329,7 +1329,7 @@
                 if (op.type === 'const') return op.value;
                 if (op.type === 'counter') return `C${op.value}.CV`;
                 if (op.type === 'timer') return `T${op.value}.ET`;
-                if (op.type === 'MW') return `MW${op.value}`;
+                if (op.type === 'MW' || op.type === 'IW' || op.type === 'QW') return `${op.type}${op.value}`;
                 return op.value;
             };
             return `${fmt(op1)} ? ${fmt(op2)}`;
@@ -2791,7 +2791,9 @@
                 case 'const': return op.value || 0;
                 case 'counter': return `DB${50 + (op.value || 0)}.CV`;
                 case 'timer': return `DB${10 + (op.value || 0)}.ET`;
-                case 'MW': return `MW${op.value || 0}`;
+                case 'MW':
+                case 'IW':
+                case 'QW': return `${op.type}${op.value || 0}`;
                 default: return op.value || 0;
             }
         },
@@ -2937,7 +2939,9 @@
                 case 'const': return op.value || 0;
                 case 'counter': return `"C${op.value || 0}".CV`;
                 case 'timer': return `"T${op.value || 0}".ET`;
-                case 'MW': return `"MW${op.value || 0}"`;
+                case 'MW':
+                case 'IW':
+                case 'QW': return `"${op.type}${op.value || 0}"`;
                 default: return op.value || 0;
             }
         },

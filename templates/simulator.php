@@ -322,6 +322,8 @@
                     <option value="counter">Counter CV</option>
                     <option value="timer">Timer ET</option>
                     <option value="MW">Memory Word</option>
+                    <option value="IW">Input Word (IW)</option>
+                    <option value="QW">Output Word (QW)</option>
                 </select>
                 <input type="number" id="config-cmp-op1-value" value="0" style="width:80px;">
                 <br><br>
@@ -331,6 +333,8 @@
                     <option value="counter">Counter CV</option>
                     <option value="timer">Timer ET</option>
                     <option value="MW">Memory Word</option>
+                    <option value="IW">Input Word (IW)</option>
+                    <option value="QW">Output Word (QW)</option>
                 </select>
                 <input type="number" id="config-cmp-op2-value" value="0" style="width:80px;">
             </div>

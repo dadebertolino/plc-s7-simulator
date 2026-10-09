@@ -105,3 +105,22 @@ describe('valori delle word (INT)', () => {
         assert.equal(plc.get('Q0.0'), 1);
     });
 });
+
+describe('comparatori su word di ingresso e uscita', () => {
+    test('IW64 confrontato con una soglia', () => {
+        const plc = newPlc([RUNG([CMP('gt', { type: 'IW', value: 64 }, { type: 'const', value: 13824 })], [COIL('Q0.0')])]);
+        plc.PLC.writeWord('IW', 64, 13824);
+        plc.scan();
+        assert.equal(plc.get('Q0.0'), 0);
+        plc.PLC.writeWord('IW', 64, 20000);
+        plc.scan();
+        assert.equal(plc.get('Q0.0'), 1);
+    });
+
+    test('QW64 come operando', () => {
+        const plc = newPlc([RUNG([CMP('eq', { type: 'QW', value: 64 }, { type: 'const', value: 100 })], [COIL('Q0.0')])]);
+        plc.PLC.writeWord('QW', 64, 100);
+        plc.scan();
+        assert.equal(plc.get('Q0.0'), 1);
+    });
+});

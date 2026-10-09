@@ -421,7 +421,9 @@
                         const tid = 'T' + (op.value || 0);
                         return this.timers[tid] ? this.timers[tid].ET : 0;
                     case 'MW':
-                        return this.readWord('MW', parseInt(op.value) || 0);
+                    case 'IW':
+                    case 'QW':
+                        return this.readWord(op.type, parseInt(op.value) || 0);
                     default:
                         return 0;
                 }
