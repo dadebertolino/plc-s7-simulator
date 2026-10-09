@@ -72,7 +72,8 @@ class PLC_S7_Simulator {
         // JSZip per import file TIA Portal (.zap), incluso nel plugin
         wp_enqueue_script('plc-sim-jszip', PLC_SIM_PLUGIN_URL . 'assets/js/vendor/jszip.min.js', array(), '3.10.1', true);
 
-        wp_enqueue_script('plc-simulator-script', PLC_SIM_PLUGIN_URL . 'assets/js/simulator.js', array('jquery', 'plc-sim-jszip'), PLC_SIM_VERSION, true);
+        wp_enqueue_script('plc-sim-core', PLC_SIM_PLUGIN_URL . 'assets/js/core/plc-core.js', array(), PLC_SIM_VERSION, true);
+        wp_enqueue_script('plc-simulator-script', PLC_SIM_PLUGIN_URL . 'assets/js/simulator.js', array('jquery', 'plc-sim-jszip', 'plc-sim-core'), PLC_SIM_VERSION, true);
         wp_localize_script('plc-simulator-script', 'plcSimConfig', array(
             'version' => PLC_SIM_VERSION,
         ));
