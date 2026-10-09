@@ -208,8 +208,9 @@
                     this.timers[k].running = false;
                 });
                 Object.keys(this.counters).forEach(k => {
-                    this.counters[k].CV = 0;
-                    this.counters[k].Q = 0;
+                    const c = this.counters[k];
+                    c.CV = c.startAtPV ? c.PV : 0;
+                    c.Q = 0;
                     this.counters[k].lastCU = 0;
                     this.counters[k].lastCD = 0;
                 });
@@ -338,17 +339,19 @@
             },
 
             // Counter CTD (Count Down)
-            counterCTD: function(id, CD, LD, PV) {
+            // Con LD collegato parte da 0 come in TIA Portal; senza LD (programmi
+            // creati prima che LD fosse configurabile) parte da PV.
+            counterCTD: function(id, CD, LD, PV, startAtPV) {
                 if (!this.counters[id]) {
-                    this.counters[id] = { CV: PV, Q: 0, PV: PV, lastCD: 0, lastCU: 0 };
+                    this.counters[id] = { CV: startAtPV ? PV : 0, Q: 0, PV: PV, lastCD: 0, lastCU: 0, startAtPV: !!startAtPV };
                 }
                 const c = this.counters[id];
                 c.PV = PV;
 
                 if (LD) {
                     c.CV = c.PV;
-                } else if (CD && !c.lastCD && c.CV > 0) {
-                    c.CV = c.CV - 1;
+                } else if (CD && !c.lastCD) {
+                    c.CV = Math.max(c.CV - 1, -32768);
                 }
                 c.lastCD = CD;
                 c.Q = c.CV <= 0 ? 1 : 0;
@@ -368,11 +371,13 @@
                 } else if (LD) {
                     c.CV = c.PV;
                 } else {
-                    if (CU && !c.lastCU) {
+                    // Fronti CU e CD nello stesso ciclo: CV invariato
+                    const up = CU && !c.lastCU;
+                    const down = CD && !c.lastCD;
+                    if (up && !down) {
                         c.CV = Math.min(c.CV + 1, 32767);
-                    }
-                    if (CD && !c.lastCD && c.CV > 0) {
-                        c.CV = c.CV - 1;
+                    } else if (down && !up) {
+                        c.CV = Math.max(c.CV - 1, -32768);
                     }
                 }
                 c.lastCU = CU;
@@ -586,7 +591,7 @@
                         const counterId = `C${elem.counterId || 0}`;
                         const preset = elem.preset || 10;
                         const load = elem.loadAddr ? PLC.readBit(elem.loadAddr.type, elem.loadAddr.byte, elem.loadAddr.bit) : 0;
-                        const result = PLC.counterCTD(counterId, inputPower, load, preset);
+                        const result = PLC.counterCTD(counterId, inputPower, load, preset, !elem.loadAddr);
                         return result;
                     }
 

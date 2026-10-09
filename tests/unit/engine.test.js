@@ -334,3 +334,80 @@ describe('timer: comportamento TIA dopo la scadenza', () => {
         assert.equal(plc.get('Q0.0'), 0, 'finisce a 300 ms dal primo fronte');
     });
 });
+
+describe('contatori: campo INT e casi limite come in TIA', () => {
+    const I01 = { type: 'I', byte: 0, bit: 1 };
+    const I02 = { type: 'I', byte: 0, bit: 2 };
+    const pulse = (plc, a) => { plc.set(a, 1); plc.scan(); plc.set(a, 0); plc.scan(); };
+
+    test('CTU si ferma a 32767', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTU(0, 5)], [])]);
+        plc.scan();
+        plc.counter(0).CV = 32766;
+        pulse(plc, 'I0.0'); pulse(plc, 'I0.0');
+        assert.equal(plc.counter(0).CV, 32767);
+    });
+
+    test('CTU: i fronti con R attivo non contano', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTU(0, 5, { resetAddr: I01 })], [])]);
+        plc.set('I0.1', 1);
+        pulse(plc, 'I0.0');
+        plc.set('I0.1', 0); plc.scan();
+        assert.equal(plc.counter(0).CV, 0);
+    });
+
+    test('CTD con LD collegato: parte da 0, LD carica PV, scende sotto zero', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTD(0, 2, { loadAddr: I01 })], [COIL('Q0.0')])]);
+        plc.scan();
+        assert.equal(plc.counter(0).CV, 0);
+        assert.equal(plc.get('Q0.0'), 1, 'Q = CV <= 0');
+        pulse(plc, 'I0.1');
+        assert.equal(plc.counter(0).CV, 2);
+        assert.equal(plc.get('Q0.0'), 0);
+        pulse(plc, 'I0.0'); pulse(plc, 'I0.0'); pulse(plc, 'I0.0');
+        assert.equal(plc.counter(0).CV, -1);
+        assert.equal(plc.get('Q0.0'), 1);
+    });
+
+    test('CTD senza LD: dopo il reset (STOP) riparte da PV', () => {
+        // Regressione: reset() lo azzerava e senza LD non si ricaricava piu'.
+        const plc = newPlc([RUNG([NO('I0.0'), CTD(0, 3)], [COIL('Q0.0')])]);
+        pulse(plc, 'I0.0');
+        assert.equal(plc.counter(0).CV, 2);
+        plc.PLC.reset();
+        plc.scan();
+        assert.equal(plc.counter(0).CV, 3);
+        assert.equal(plc.get('Q0.0'), 0);
+    });
+
+    test('CTD si ferma a -32768', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTD(0, 2, { loadAddr: I01 })], [])]);
+        plc.scan();
+        plc.counter(0).CV = -32767;
+        pulse(plc, 'I0.0'); pulse(plc, 'I0.0');
+        assert.equal(plc.counter(0).CV, -32768);
+    });
+
+    test('CTUD scende sotto zero e QD vale CV <= 0', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTUD(0, 2, 'I0.1')], [])]);
+        pulse(plc, 'I0.1');
+        assert.equal(plc.counter(0).CV, -1);
+        assert.equal(plc.counter(0).QD, 1);
+    });
+
+    test('CTUD: fronti CU e CD nello stesso ciclo lasciano CV invariato, anche a 32767', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTUD(0, 2, 'I0.1')], [])]);
+        plc.scan();
+        plc.counter(0).CV = 32767;
+        plc.set('I0.0', 1); plc.set('I0.1', 1); plc.scan();
+        assert.equal(plc.counter(0).CV, 32767);
+    });
+
+    test('CTUD: R ha precedenza su LD', () => {
+        const plc = newPlc([RUNG([NO('I0.0'), CTUD(0, 7, 'I0.3', { resetAddr: I01, loadAddr: I02 })], [])]);
+        plc.set('I0.1', 1); plc.set('I0.2', 1); plc.scan();
+        assert.equal(plc.counter(0).CV, 0);
+        plc.set('I0.1', 0); plc.scan();
+        assert.equal(plc.counter(0).CV, 7);
+    });
+});
