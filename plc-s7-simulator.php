@@ -3,7 +3,7 @@
  * Plugin Name: Unofficial S7-1200 Simulator
  * Plugin URI: https://www.davidebertolino.it/progetti/s7-simulator/
  * Description: Simulatore PLC Siemens S7-1200 con editor Ladder, HMI touch e impianti virtuali animati
- * Version: 1.6.9
+ * Version: 1.7.0
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Author: Davide "the Prof." Bertolino
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('PLC_SIM_VERSION', '1.6.9');
+define('PLC_SIM_VERSION', '1.7.0');
 define('PLC_SIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PLC_SIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 

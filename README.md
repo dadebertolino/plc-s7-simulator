@@ -4,7 +4,7 @@
 
 Un plugin didattico che simula un PLC Siemens S7-1200 direttamente nel browser. Programmazione Ladder, HMI touch, impianti virtuali animati. Nessun hardware richiesto.
 
-**Versione:** 1.6.9  
+**Versione:** 1.7.0  
 **Autore:** Davide Bertolino  
 **Licenza:** GPL v2 or later  
 **Richiede WordPress:** 5.8+  
@@ -17,7 +17,7 @@ Un plugin didattico che simula un PLC Siemens S7-1200 direttamente nel browser. 
 
 Unofficial S7-1200 Simulator porta l'automazione industriale in classe senza bisogno di hardware. Gli studenti possono programmare in linguaggio Ladder, creare pannelli HMI touch e vedere i loro programmi prendere vita in scene industriali animate.
 
-Il simulatore riproduce fedelmente il comportamento di un PLC reale: le uscite non possono essere in serie (solo in parallelo), i timer funzionano come TON/TOF/TP, gli I/O analogici usano il range 0-27648 come in TIA Portal.
+Il simulatore riproduce fedelmente il comportamento di un PLC reale: le uscite non possono essere in serie (solo in parallelo), timer, contatori e fronti si comportano come le istruzioni di TIA Portal, la memoria è indirizzata per byte con word sovrapposte ai bit, gli I/O seguono la CPU e le espansioni configurate e quelli analogici usano il range 0-27648.
 
 ---
 
@@ -26,9 +26,10 @@ Il simulatore riproduce fedelmente il comportamento di un PLC reale: le uscite n
 ### Programmazione Ladder
 - Editor drag & drop con contatti NA, NC, P, N
 - Bobine standard, Set (S), Reset (R)
+- Contatti P e N con fronte sull'operando, una memoria per ogni istruzione
 - Timer TON, TOF, TP con preset configurabile
-- Counter CTU, CTD, CTUD
-- Comparatori ==, <>, >, <, >=, <=
+- Counter CTU, CTD, CTUD con campo INT, ingressi R e LD e uscita QD configurabili
+- Comparatori ==, <>, >, <, >=, <= anche su IW e QW
 - Branch paralleli e annidati
 - Regole ladder realistiche (uscite solo in parallelo)
 
@@ -55,12 +56,19 @@ Il simulatore riproduce fedelmente il comportamento di un PLC reale: le uscite n
 - Varianti: AC/DC/Relay
 - Espansioni I/O digitali e analogici
 - Signal Board integrata
-- Limiti I/O automatici
+- Indirizzi I/O di default come in TIA Portal, secondo CPU ed espansioni
+- RUN e STOP come in S7-1200: in STOP le uscite vanno a 0, al passaggio in RUN si azzerano uscite, merker, timer e contatori
 
 ### Gestione Progetti
-- Salvataggio/caricamento su file JSON
+- Salvataggio/caricamento su file JSON, anche nel formato delle versioni precedenti
 - Persistenza automatica in localStorage
-- Compatibilità con struttura TIA Portal
+- Export AWL, SCL e XML SimaticML per TIA Portal
+- Import di XML SimaticML e progetti `.zap`
+
+### Privacy
+- I programmi restano sul computer dello studente: niente salvataggi sul server
+- Nessuna richiesta a servizi esterni: font di sistema e JSZip incluso nel plugin
+- I file importati vengono filtrati e il testo libero è mostrato come testo
 
 ---
 
@@ -71,6 +79,8 @@ Il simulatore riproduce fedelmente il comportamento di un PLC reale: le uscite n
 3. Attiva il plugin
 4. Crea una pagina e inserisci lo shortcode `[plc_simulator]`
 5. Pubblica
+
+Gli aggiornamenti arrivano dalle Release di GitHub e compaiono nella pagina Plugin di WordPress come per i plugin della directory ufficiale.
 
 ---
 
@@ -112,18 +122,42 @@ Inserisce il simulatore completo nella pagina. Consigliato usare un template a l
 ```
 plc-s7-simulator/
 ├── plc-s7-simulator.php     # File principale
+├── uninstall.php            # Pulizia alla disinstallazione
+├── inc/
+│   └── class-updater.php    # Aggiornamenti da GitHub
 ├── assets/
 │   ├── css/
 │   │   └── simulator.css    # Stili interfaccia
 │   └── js/
-│       └── simulator.js     # Logica simulatore
+│       ├── core/
+│       │   └── plc-core.js  # Motore PLC e Ladder (testabile in Node)
+│       ├── vendor/
+│       │   └── jszip.min.js # Import dei progetti .zap
+│       └── simulator.js     # Interfaccia, HMI, Scene
 └── templates/
     └── simulator.php        # Template HTML
 ```
 
+Test e CI sono descritti in [TESTING.md](TESTING.md).
+
 ---
 
 ## Changelog
+
+### 1.7.0
+- Motore PLC in un modulo separato, coperto da unit test
+- Memoria indirizzata per byte, con word sovrapposte ai bit come in S7
+- Contatti P/N, TOF, TP e contatori fedeli a TIA Portal; contatori con R, LD e QD configurabili
+- Comparatori con IW e QW come operandi
+- I/O secondo CPU ed espansioni, con gli indirizzi di default di TIA Portal
+- RUN e STOP come in S7-1200
+- Export SCL: timer e contatori in serie vengono chiamati; P/N diventano R_TRIG/F_TRIG
+- Import XML SimaticML senza network duplicati
+- Salvataggi solo su file locale; i programmi rimasti nel database si vedono ed eliminano dalla pagina admin
+- Import sicuri: filtro dei dati e escape del testo libero
+- Nessuna richiesta esterna: font di sistema, JSZip incluso
+- Aggiornamenti da GitHub, `uninstall.php`, licenza GPL v2 or later
+- CI con test E2E su WordPress
 
 ### 1.6.9
 - Nuova palette colori "Slate" più elegante
