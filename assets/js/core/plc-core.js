@@ -54,44 +54,41 @@
                 // Range analogico S7-1200 (0-10V / 4-20mA unipolare)
                 analogRange: { min: 0, max: 27648 }
             },
-        
-            // I/O Digitali
-            I: new Array(16).fill(0),  // Ingressi: I0.0-I1.7
-            Q: new Array(16).fill(0),  // Uscite: Q0.0-Q1.7
-            M: new Array(32).fill(0),  // Merker: M0.0-M3.7
-            MW: new Array(256).fill(0), // Memory Words
-        
-            // I/O Analogici (Word)
-            IW: new Array(128).fill(0),  // Input Word (AIW): IW64, IW66, IW96...
-            QW: new Array(128).fill(0),  // Output Word (AQW): QW64, QW66...
-        
+
+            // Aree di memoria indirizzate per byte, come in S7-1200:
+            // I0.0-I1023.7, Q0.0-Q1023.7, M0.0-M8191.7. Le word sono due byte
+            // della stessa area (MW10 = MB10 alto + MB11 basso, IW64 = IB64 + IB65).
+            I: new Uint8Array(1024),
+            Q: new Uint8Array(1024),
+            M: new Uint8Array(8192),
+
             // Timers
             timers: {},
-        
+
             // Counters
             counters: {},
-        
+
             // Edge detection memory
             edges: {},
-        
+
             // Orologio in ms dei timer: i test lo sostituiscono con uno finto
             now: function() {
                 return Date.now();
             },
-        
+
             // Stato simulazione
             running: false,
             scanTime: 50, // ms
             scanInterval: null,
-        
+
             // Programma Ladder
             program: {
                 name: 'Main [OB1]',
                 rungs: []
             },
-        
+
             // ==================== Hardware Functions ====================
-        
+
             // Calcola I/O totali in base a configurazione
             getAnalogConfig: function() {
                 const cpu = this.hardware.cpuModels[this.hardware.currentCPU];
@@ -99,23 +96,23 @@
                 let totalAQ = cpu.aq;
                 let aiAddresses = [];
                 let aqAddresses = [];
-            
+
                 // AI integrati CPU (IW64, IW66 tipicamente)
                 for (let i = 0; i < cpu.ai; i++) {
                     aiAddresses.push(cpu.aiStart + (i * 2));
                 }
-            
+
                 // AQ integrati CPU (se presenti)
                 if (cpu.aq > 0) {
                     for (let i = 0; i < cpu.aq; i++) {
                         aqAddresses.push(cpu.aqStart + (i * 2));
                     }
                 }
-            
+
                 // Espansioni (partono da IW96/QW96)
                 let expAIStart = 96;
                 let expAQStart = 96;
-            
+
                 this.hardware.installedExpansions.forEach(expId => {
                     const exp = this.hardware.expansions[expId];
                     if (exp) {
@@ -124,7 +121,7 @@
                         }
                         expAIStart += exp.ai * 2;
                         totalAI += exp.ai;
-                    
+
                         for (let i = 0; i < exp.aq; i++) {
                             aqAddresses.push(expAQStart + (i * 2));
                         }
@@ -132,24 +129,32 @@
                         totalAQ += exp.aq;
                     }
                 });
-            
+
                 return { totalAI, totalAQ, aiAddresses, aqAddresses };
+            },
+
+            // Area di un bit ('I', 'Q', 'M') o di una word ('IW', 'QW', 'MW')
+            area: function(type) {
+                const name = type && type.length === 2 && type[1] === 'W' ? type[0] : type;
+                return name === 'I' || name === 'Q' || name === 'M' ? this[name] : null;
             },
 
             // Leggi bit
             readBit: function(type, byte, bit) {
-                const arr = this[type];
-                if (!arr) return 0;
-                const index = byte * 8 + bit;
-                return arr[index] || 0;
+                const arr = this.area(type);
+                if (!arr || !(byte >= 0 && byte < arr.length)) return 0;
+                return (arr[byte] >> bit) & 1;
             },
 
             // Scrivi bit
             writeBit: function(type, byte, bit, value) {
-                const arr = this[type];
-                if (!arr) return;
-                const index = byte * 8 + bit;
-                arr[index] = value ? 1 : 0;
+                const arr = this.area(type);
+                if (!arr || !(byte >= 0 && byte < arr.length)) return;
+                if (value) {
+                    arr[byte] |= (1 << bit);
+                } else {
+                    arr[byte] &= ~(1 << bit);
+                }
             },
 
             // Toggle bit (per ingressi)
@@ -157,33 +162,34 @@
                 const current = this.readBit(type, byte, bit);
                 this.writeBit(type, byte, bit, current ? 0 : 1);
             },
-        
+
             // ==================== Word Functions (Analog I/O) ====================
-        
-            // Leggi word (16 bit) - per I/O analogici
+
+            // Leggi word INT (16 bit con segno, byte alto all'indirizzo piu' basso)
+            // type: 'IW' per Input Word, 'QW' per Output Word, 'MW' per Memory Word
             readWord: function(type, address) {
-                // type: 'IW' per Input Word, 'QW' per Output Word, 'MW' per Memory Word
-                const arr = this[type];
-                if (!arr) return 0;
-                return arr[address] || 0;
+                const arr = this.area(type);
+                if (!arr || !(address >= 0 && address + 1 < arr.length)) return 0;
+                const raw = (arr[address] << 8) | arr[address + 1];
+                return raw >= 0x8000 ? raw - 0x10000 : raw;
             },
-        
-            // Scrivi word (16 bit)
+
+            // Scrivi word INT, saturata a -32768..32767
             writeWord: function(type, address, value) {
-                const arr = this[type];
-                if (!arr) return;
-                // Clamp a range 16-bit signed (-32768 to 32767) o unsigned (0 to 65535)
-                const range = this.hardware.analogRange;
-                arr[address] = Math.max(range.min, Math.min(range.max, Math.round(value)));
+                const arr = this.area(type);
+                if (!arr || !(address >= 0 && address + 1 < arr.length)) return;
+                const v = Math.max(-32768, Math.min(32767, Math.round(Number(value) || 0))) & 0xFFFF;
+                arr[address] = v >> 8;
+                arr[address + 1] = v & 0xFF;
             },
-        
+
             // Converti valore analogico in unità ingegneristiche
             // es: AIW 0-27648 -> 0-100% o 0-10V o 4-20mA
             analogToEngineering: function(rawValue, engMin, engMax) {
                 const norm = this.NORM_X(rawValue, this.hardware.analogRange.min, this.hardware.analogRange.max);
                 return this.SCALE_X(norm, engMin, engMax);
             },
-        
+
             // Converti unità ingegneristiche in valore analogico
             engineeringToAnalog: function(engValue, engMin, engMax) {
                 const norm = this.NORM_X(engValue, engMin, engMax);
@@ -195,9 +201,6 @@
                 this.I.fill(0);
                 this.Q.fill(0);
                 this.M.fill(0);
-                this.MW.fill(0);
-                this.IW.fill(0);
-                this.QW.fill(0);
                 this.edges = {};
                 Object.keys(this.timers).forEach(k => {
                     this.timers[k].ET = 0;
@@ -219,7 +222,7 @@
                 }
                 const t = this.timers[id];
                 t.PT = PT;
-            
+
                 if (IN) {
                     if (!t.running) {
                         t.running = true;
@@ -245,7 +248,7 @@
                 }
                 const t = this.timers[id];
                 t.PT = PT;
-            
+
                 if (IN) {
                     // Input ON: output ON, reset timer
                     t.ET = 0;
@@ -261,10 +264,10 @@
                     const elapsed = this.now() - t.lastTime;
                     t.ET = Math.min(t.ET + elapsed, t.PT);
                     t.lastTime = this.now();
-                
+
                     // Output resta ON durante il ritardo
                     t.Q = 1;
-                
+
                     if (t.ET >= t.PT) {
                         // Tempo scaduto: spegni output
                         t.Q = 0;
@@ -286,7 +289,7 @@
                 }
                 const c = this.counters[id];
                 c.PV = PV;
-            
+
                 if (R) {
                     c.CV = 0;
                 } else if (CU && !c.lastCU) {
@@ -305,7 +308,7 @@
                 }
                 const t = this.timers[id];
                 t.PT = PT;
-            
+
                 // Rileva fronte di salita
                 if (IN && !t.lastIN && !t.running) {
                     t.running = true;
@@ -313,18 +316,18 @@
                     t.ET = 0;
                     t.Q = 1;
                 }
-            
+
                 if (t.running) {
                     const elapsed = this.now() - t.lastTime;
                     t.ET = Math.min(t.ET + elapsed, t.PT);
                     t.lastTime = this.now();
-                
+
                     if (t.ET >= t.PT) {
                         t.Q = 0;
                         t.running = false;
                     }
                 }
-            
+
                 t.lastIN = IN;
                 return t.Q;
             },
@@ -336,7 +339,7 @@
                 }
                 const c = this.counters[id];
                 c.PV = PV;
-            
+
                 if (LD) {
                     c.CV = c.PV;
                 } else if (CD && !c.lastCD && c.CV > 0) {
@@ -354,7 +357,7 @@
                 }
                 const c = this.counters[id];
                 c.PV = PV;
-            
+
                 if (R) {
                     c.CV = 0;
                 } else if (LD) {
@@ -408,7 +411,7 @@
                         const tid = 'T' + (op.value || 0);
                         return this.timers[tid] ? this.timers[tid].ET : 0;
                     case 'MW':
-                        return this.MW[parseInt(op.value) || 0] || 0;
+                        return this.readWord('MW', parseInt(op.value) || 0);
                     default:
                         return 0;
                 }
@@ -426,9 +429,9 @@
                     default: return 0;
                 }
             },
-        
+
             // ==================== Analog Functions (NORM_X / SCALE_X) ====================
-        
+
             // NORM_X: Normalizza valore da range [min,max] a [0.0, 1.0]
             // Come in TIA Portal: OUT = (VALUE - MIN) / (MAX - MIN)
             NORM_X: function(value, min, max) {
@@ -436,14 +439,14 @@
                 const result = (value - min) / (max - min);
                 return Math.max(0, Math.min(1, result)); // Clamp a 0-1
             },
-        
+
             // SCALE_X: Scala valore normalizzato [0.0, 1.0] a range [min, max]
             // Come in TIA Portal: OUT = MIN + (VALUE * (MAX - MIN))
             SCALE_X: function(normalizedValue, min, max) {
                 const result = min + (normalizedValue * (max - min));
                 return Math.max(min, Math.min(max, result)); // Clamp al range
             },
-        
+
             // Combinazione NORM + SCALE per conversione diretta tra range
             // Converte da [inMin, inMax] a [outMin, outMax]
             SCALE_RANGE: function(value, inMin, inMax, outMin, outMax) {
@@ -457,7 +460,7 @@
             // Esegui programma
             execute: function() {
                 if (!PLC.running) return;
-            
+
                 PLC.program.rungs.forEach((rung, idx) => {
                     this.executeRung(rung, idx);
                 });
@@ -468,24 +471,24 @@
                 // Inizializza se necessario (compatibilita)
                 if (!rung.inputs) rung.inputs = rung.elements || [];
                 if (!rung.outputs) rung.outputs = [];
-            
+
                 // Valuta inputs (condizioni)
                 let power = this.evaluateBranch(rung.inputs, rung);
                 rung.inputPower = power;
-            
+
                 // Valuta outputs (azioni) - ricevono il power dagli inputs
                 this.evaluateBranch(rung.outputs, rung, power);
-            
+
                 rung.power = power;
             },
 
             // Valuta branch/serie di elementi (supporta annidamento)
             evaluateBranch: function(elements, rung, initialPower) {
                 let power = initialPower !== undefined ? initialPower : 1;
-            
+
                 for (let i = 0; i < elements.length; i++) {
                     const elem = elements[i];
-                
+
                     if (elem.type === 'branch') {
                         // Parallelo - OR tra le linee (ricorsivo per sub-branch)
                         let branchPower = 0;
@@ -500,7 +503,7 @@
                         elem.state = power;
                     }
                 }
-            
+
                 return power;
             },
 
@@ -510,61 +513,61 @@
                 const type = addr.type || 'M';
                 const byte = addr.byte || 0;
                 const bit = addr.bit || 0;
-            
+
                 switch (elem.type) {
                     case 'contact-no':
                         return inputPower && PLC.readBit(type, byte, bit);
-                    
+
                     case 'contact-nc':
                         return inputPower && !PLC.readBit(type, byte, bit);
-                
+
                     case 'contact-p': {
                         // Positive edge (fronte di salita)
                         const edgeId = `P_${type}${byte}.${bit}`;
                         const currentVal = inputPower && PLC.readBit(type, byte, bit);
                         return PLC.edgeP(edgeId, currentVal);
                     }
-                
+
                     case 'contact-n': {
                         // Negative edge (fronte di discesa)
                         const edgeId = `N_${type}${byte}.${bit}`;
                         const currentVal = inputPower && PLC.readBit(type, byte, bit);
                         return PLC.edgeN(edgeId, currentVal);
                     }
-                    
+
                     case 'coil':
                         PLC.writeBit(type, byte, bit, inputPower);
                         return inputPower;
-                    
+
                     case 'coil-set':
                         if (inputPower) PLC.writeBit(type, byte, bit, 1);
                         return inputPower;
-                    
+
                     case 'coil-reset':
                         if (inputPower) PLC.writeBit(type, byte, bit, 0);
                         return inputPower;
-                    
+
                     case 'timer-ton': {
                         const timerId = `T${elem.timerId || 0}`;
                         const preset = elem.preset || 1000;
                         const result = PLC.timerTON(timerId, inputPower, preset);
                         return result;
                     }
-                    
+
                     case 'timer-tof': {
                         const timerId = `T${elem.timerId || 0}`;
                         const preset = elem.preset || 1000;
                         const result = PLC.timerTOF(timerId, inputPower, preset);
                         return result;
                     }
-                
+
                     case 'timer-tp': {
                         const timerId = `T${elem.timerId || 0}`;
                         const preset = elem.preset || 1000;
                         const result = PLC.timerTP(timerId, inputPower, preset);
                         return result;
                     }
-                    
+
                     case 'counter-ctu': {
                         const counterId = `C${elem.counterId || 0}`;
                         const preset = elem.preset || 10;
@@ -572,7 +575,7 @@
                         const result = PLC.counterCTU(counterId, inputPower, reset, preset);
                         return result;
                     }
-                
+
                     case 'counter-ctd': {
                         const counterId = `C${elem.counterId || 0}`;
                         const preset = elem.preset || 10;
@@ -580,7 +583,7 @@
                         const result = PLC.counterCTD(counterId, inputPower, load, preset);
                         return result;
                     }
-                
+
                     case 'counter-ctud': {
                         const counterId = `C${elem.counterId || 0}`;
                         const preset = elem.preset || 10;
@@ -591,7 +594,7 @@
                         const result = PLC.counterCTUD(counterId, inputPower, cd, reset, load, preset);
                         return result;
                     }
-                
+
                     // Comparatori
                     case 'cmp-eq':
                     case 'cmp-ne':
@@ -605,7 +608,7 @@
                         const val2 = PLC.getOperandValue(elem.operand2);
                         return PLC.compare(op, val1, val2);
                     }
-                    
+
                     default:
                         return inputPower;
                 }

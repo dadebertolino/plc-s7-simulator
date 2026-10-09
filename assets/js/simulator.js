@@ -737,7 +737,8 @@
                 // Eventi slider AI
                 $('.ai-slider').on('input', function() {
                     const addr = parseInt($(this).data('address'));
-                    const value = parseInt($(this).val());
+                    const range = PLC.hardware.analogRange;
+                    const value = Math.max(range.min, Math.min(range.max, parseInt($(this).val()) || 0));
                     PLC.writeWord('IW', addr, value);
                     UI.updateAnalogDisplay();
                 });
@@ -5287,7 +5288,7 @@
                     const counter = PLC.counters['C' + elem.varNum];
                     return counter ? counter.CV : 0;
                 case 'MW':
-                    return PLC.MW[elem.varNum] || 0;
+                    return PLC.readWord('MW', elem.varNum);
                 default:
                     return 0;
             }
@@ -5301,7 +5302,7 @@
                     PLC.writeBit(elem.varType, elem.varNum, elem.varBit, value);
                     break;
                 case 'MW':
-                    PLC.MW[elem.varNum] = value;
+                    PLC.writeWord('MW', elem.varNum, value);
                     break;
             }
             this.updateDisplay();
@@ -5904,7 +5905,7 @@
             this.alarms.forEach(alarm => {
                 let currentValue;
                 if (alarm.varType === 'MW') {
-                    currentValue = PLC.MW[alarm.varNum] || 0;
+                    currentValue = PLC.readWord('MW', alarm.varNum);
                 } else {
                     currentValue = PLC.readBit(alarm.varType, alarm.varNum, alarm.varBit);
                 }
@@ -6415,7 +6416,7 @@
                     const counter = PLC.counters['C' + alarm.varNum];
                     return counter ? counter.CV : 0;
                 case 'MW':
-                    return PLC.MW[alarm.varNum] || 0;
+                    return PLC.readWord('MW', alarm.varNum);
                 default:
                     return 0;
             }
@@ -6824,7 +6825,7 @@
         // Legge valore variabile PLC
         readValue: function(elem) {
             if (elem.varType === 'MW') {
-                return PLC.MW[elem.varNum] || 0;
+                return PLC.readWord('MW', elem.varNum);
             } else {
                 return PLC.readBit(elem.varType, elem.varNum, elem.varBit);
             }
