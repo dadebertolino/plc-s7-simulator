@@ -62,6 +62,13 @@
             Q: new Uint8Array(1024),
             M: new Uint8Array(8192),
 
+            // Immagine di processo degli ingressi (PII): a inizio ciclo copia
+            // degli ingressi del campo (I), che pulsanti, HMI e Scene scrivono.
+            // Durante il ciclo il programma legge e scrive qui: una bobina su
+            // un ingresso cambia l'immagine e non il campo, come in S7.
+            PII: new Uint8Array(1024),
+            scanning: false,
+
             // Timers
             timers: {},
 
@@ -179,7 +186,8 @@
             // Area di un bit ('I', 'Q', 'M') o di una word ('IW', 'QW', 'MW')
             area: function(type) {
                 const name = type && type.length === 2 && type[1] === 'W' ? type[0] : type;
-                return name === 'I' || name === 'Q' || name === 'M' ? this[name] : null;
+                if (name === 'I') return this.scanning ? this.PII : this.I;
+                return name === 'Q' || name === 'M' ? this[name] : null;
             },
 
             // Leggi bit
@@ -539,9 +547,15 @@
             execute: function() {
                 if (!PLC.running) return;
 
-                PLC.program.rungs.forEach((rung, idx) => {
-                    this.executeRung(rung, idx);
-                });
+                PLC.PII.set(PLC.I);
+                PLC.scanning = true;
+                try {
+                    PLC.program.rungs.forEach((rung, idx) => {
+                        this.executeRung(rung, idx);
+                    });
+                } finally {
+                    PLC.scanning = false;
+                }
             },
 
             // Esegui singolo rung
